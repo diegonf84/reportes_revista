@@ -1,0 +1,11 @@
+# Ignorar el archivo de base de datos
+revista_tr_database.db
+
+# Ignorar la carpeta /notebook y su contenido
+/notebook/
+
+# Ignorar todos los directorios __pycache__ y su contenido
+__pycache__/
+
+# Ignorar archivos, excepto aquellos que coincidan con un patrón
+*.txt

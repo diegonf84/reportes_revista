@@ -1,0 +1,8 @@
+name: revista_tr_cuadros
+channels:
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+    - pandas==2.1.4
