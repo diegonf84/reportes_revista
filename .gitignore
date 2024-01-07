@@ -9,3 +9,6 @@ __pycache__/
 
 # Ignorar archivos, excepto aquellos que coincidan con un patrón
 *.txt
+
+# Ignorar el archivo de variables
+.env

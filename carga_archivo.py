@@ -2,45 +2,25 @@ import pandas as pd
 import numpy as np
 import sqlite3
 import logging
+import os
+from dotenv import load_dotenv
+from utils.db_functions import *
+from utils.other_functions import *
+
+load_dotenv()
 
 # Configuración básica del logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-
-database_path = 'revista_tr_database.db'
-conn = sqlite3.connect(database_path)
-table = 'datos_balance'
+database_path=os.getenv('DATABASE')
 
 
-def quita_nulos(x):
-    if x == '' or x is None:
-        return np.nan
-    elif x is np.nan:
-        return x
-    else:
-        return x
-
-
-def verificar_tipos(df, tipos_esperados):
+def load_and_transform_file(filepath:str) -> pd.DataFrame:
     """
-    Verifica si los tipos de datos de las columnas en un DataFrame coinciden con los esperados.
-
-    Parámetros:
-    df (pandas.DataFrame): El DataFrame a verificar.
-    tipos_esperados (dict): Un diccionario con los nombres de las columnas como claves y los tipos de datos esperados como valores.
-
-    Retorna:
-    bool: True si todos los tipos de datos son los esperados, False en caso contrario.
-    """
-    tipos_actuales = df.dtypes
-    return all(tipos_actuales[col] == tipo for col, tipo in tipos_esperados.items())
-
-
-def load_and_transform_file(filepath):
-    """_summary_
+    Levanta el archivo .txt y lo transforma con las columnas necesarias para incorporarlo a la base de datos
 
     Args:
-        filepath (_type_): Ruta del archivo a leer
+        filepath (str): Ruta del archivo a leer
     Retorna:
     df: Dataframe ya transformado listo para subir.
     """
@@ -70,19 +50,8 @@ def load_and_transform_file(filepath):
     return data
 
 
-def insert_info(data, conn):
-    """_summary_
-
-    Args:
-        df (_type_): _description_
-        conn (_type_): _description_
-    """
-    data.to_sql(table, conn, if_exists='append', index=False)
-    conn.close()
-
-
 def procesar_archivo(file):
     df = load_and_transform_file(file)
-    insert_info(df, conn)
+    #insert_info(data=df, database_path=database_path, table='datos_balance')
     filas, columnas = df.shape
     logging.info(f"Se insertaron {filas} filas, para el archivo {file}")

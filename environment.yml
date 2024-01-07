@@ -7,3 +7,4 @@ dependencies:
   - pip:
     - pandas==2.1.4
     - jupyterlab
+    - python-dotenv
