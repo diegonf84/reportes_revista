@@ -8,3 +8,4 @@ dependencies:
     - pandas==2.1.4
     - jupyterlab
     - python-dotenv
+    - PyYAML

@@ -44,4 +44,8 @@ Cuando termines de trabajar en el proyecto, puedes desactivar el entorno Conda c
 
 `conda deactivate`
 
-
+## TODO
+* Separar las funciones de carge de datos y transformación
+* Probar guardado de tablas
+* Quitar dependencia de periodos en query
+* Generar tabla de algún cuadro

@@ -3,6 +3,8 @@ revista_tr_database.db
 
 # Ignorar la carpeta /notebook y su contenido
 /notebook/
+/archivos_de_paso/
+/config/
 
 # Ignorar todos los directorios __pycache__ y su contenido
 __pycache__/
@@ -12,3 +14,8 @@ __pycache__/
 
 # Ignorar el archivo de variables
 .env
+
+# Archivo de VSCode
+.vscode
+
+*.egg-info/
