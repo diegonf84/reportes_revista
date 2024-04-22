@@ -3,7 +3,6 @@ revista_tr_database.db
 
 # Ignorar la carpeta /notebook y su contenido
 /notebook/
-/archivos_de_paso/
 /config/
 
 # Ignorar todos los directorios __pycache__ y su contenido
@@ -17,5 +16,17 @@ __pycache__/
 
 # Archivo de VSCode
 .vscode
+.DS_Store
 
 *.egg-info/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+### VisualStudioCode ###
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets

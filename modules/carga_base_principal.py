@@ -7,11 +7,11 @@ from dotenv import load_dotenv
 from utils.other_functions import *
 from utils.db_functions import insert_info,list_ultimos_periodos
 
-load_dotenv(dotenv_path='../config/.env')
+load_dotenv()
 
 database_path=os.getenv('DATABASE')
 
-with open("../config/config_mdb.yml", 'r') as file:
+with open("../config_for_load.yml", 'r') as file:
         config = yaml.safe_load(file)
     
 # Extraer los valores del archivo YAML
@@ -48,8 +48,6 @@ def load_and_transform_data(df:pd.DataFrame) -> pd.DataFrame:
         return data
     else:
         raise ValueError("Error en los datos luego de transformar")
-
-    return data
 
 if __name__ == "__main__":
     # Primero chequeamos que el período no esté

@@ -34,6 +34,12 @@ Esto creará un nuevo entorno Conda según las especificaciones del archivo `env
 
 Esto debería mostrar la versión de Python especificada en `environment.yml`. También puedes ejecutar `pip list` para ver las dependencias instaladas en el entorno.
 
+5. **Instalar modulos privados**:
+
+Esto es para instalar las funciones y métodos propios
+
+`pip install -e .`
+
 ### Trabajar con el Proyecto
 
 Ahora que has configurado el entorno, puedes comenzar a trabajar en el proyecto. Recuerda activar el entorno Conda (`conda activate nombre_del_entorno`) cada vez que trabajes en el proyecto.
