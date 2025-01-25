@@ -1,9 +1,11 @@
 # Ignorar el archivo de base de datos
 revista_tr_database.db
 
-# Ignorar la carpeta /notebook y su contenido
+# Ignorar la carpeta /notebook y su contenido, salvo la carpeta mdb_files_to_load
 /notebook/
 /config/
+/mdb_files_to_load/*
+!/mdb_files_to_load/.gitkeep
 
 # Ignorar todos los directorios __pycache__ y su contenido
 __pycache__/

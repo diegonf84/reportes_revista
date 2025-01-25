@@ -1,68 +1,80 @@
 import pandas as pd
 import yaml
-import sqlite3
 import logging
 import os
+from pathlib import Path
 from dotenv import load_dotenv
-from utils.other_functions import *
-from utils.db_functions import insert_info,list_ultimos_periodos
+from typing import Dict
+from utils.other_functions import quita_nulos, verificar_tipos, df_from_mdb
+from utils.db_functions import insert_info, list_ultimos_periodos
 
-load_dotenv()
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-database_path=os.getenv('DATABASE')
+def load_config(config_path: Path) -> Dict:
+   """Carga configuración desde YAML"""
+   with open(config_path, 'r', encoding='utf-8') as file:
+       return yaml.safe_load(file)
 
-with open("../config_for_load.yml", 'r') as file:
-        config = yaml.safe_load(file)
-    
-# Extraer los valores del archivo YAML
-directorio = config['directorio']
-nombre_archivo_zip = config['nombre_archivo_zip']
-nombre_tabla = config['nombre_tabla']
+def load_and_transform_data(df: pd.DataFrame) -> pd.DataFrame:
+   """
+   Transforma DataFrame para inserción en base de datos
 
-def load_and_transform_data(df:pd.DataFrame) -> pd.DataFrame:
-    """
-    Levanta el archivo .txt y lo transforma con las columnas necesarias para incorporarlo a la base de datos
+   Args:
+       df (pd.DataFrame): DataFrame original
 
-    Args:
-        filepath (str): Ruta del archivo a leer
-    Retorna:
-    df: Dataframe ya transformado listo para subir.
-    """
-    data = df.copy()
-    data.drop(columns={'razon_social', 'desc_subramo', 'desc_cuenta',
-                       'nivel', 'id_padre'}, inplace=True)
-    data['periodo'] = data['periodo'].apply(lambda x: int(x.replace('-', '0')))
-    data['cod_subramo'] = data['cod_subramo'].map(lambda x: quita_nulos(x))
-    data['cod_cia'] = data['cod_cia'].astype(str).str.zfill(4)
-    data = data[data['importe'] != 0]
-    data.reset_index(inplace=True, drop=True)
-    tipos_esperados = {
-        'cod_cia': 'object',
-        'periodo': 'int64',
-        'cod_subramo': 'object',
-        'importe': 'int64',
-        'cod_cuenta': 'object'
-    }
+   Returns:
+       pd.DataFrame: DataFrame transformado
+       
+   Raises:
+       ValueError: Si los tipos de datos no coinciden con lo esperado
+   """
+   data = df.copy()
+   drop_columns = {'razon_social', 'desc_subramo', 'desc_cuenta', 'nivel', 'id_padre'}
+   data.drop(columns=drop_columns, inplace=True)
+   
+   data['periodo'] = data['periodo'].apply(lambda x: int(x.replace('-', '0')))
+   data['cod_subramo'] = data['cod_subramo'].map(quita_nulos)
+   data['cod_cia'] = data['cod_cia'].astype(str).str.zfill(4)
+   data = data[data['importe'] != 0].reset_index(drop=True)
+   
+   tipos_esperados = {
+       'cod_cia': 'object',
+       'periodo': 'int64',
+       'cod_subramo': 'object',
+       'importe': 'int64',
+       'cod_cuenta': 'object'
+   }
 
-    if verificar_tipos(data, tipos_esperados):
-        return data
-    else:
-        raise ValueError("Error en los datos luego de transformar")
+   if not verificar_tipos(data, tipos_esperados):
+       raise ValueError("Error en los tipos de datos luego de transformar")
+       
+   return data
+
+def main():
+   load_dotenv()
+   database_path = os.getenv('DATABASE')
+   base_path = Path(__file__).parent.parent
+   config = load_config(base_path / "config_for_load.yml")
+   
+   directorio = base_path / config['directorio']
+   nombre_archivo = Path(config['nombre_archivo_zip']).stem
+   periodo_a_ingresar = int(nombre_archivo.replace("-", "0"))
+   
+   if periodo_a_ingresar in list_ultimos_periodos(database_path):
+       logging.info(f'El período {periodo_a_ingresar} ya existe en la base')
+       return
+
+   logging.info(f'Iniciando carga del periodo {periodo_a_ingresar}')
+   df = df_from_mdb(str(directorio), config['nombre_archivo_zip'], config['nombre_tabla'])
+   df_transformed = load_and_transform_data(df)
+   
+   insert_info(
+       data=df_transformed, 
+       database_path=database_path, 
+       table='datos_balance'
+   )
+   
+   logging.info(f"Insertadas {len(df_transformed)} filas del archivo {config['nombre_archivo_zip']}")
 
 if __name__ == "__main__":
-    # Primero chequeamos que el período no esté
-    periodos = list_ultimos_periodos(database_path=database_path)
-    nombre_archivo = os.path.splitext(os.path.basename(nombre_archivo_zip))[0]
-    periodo_a_ingresar = int(nombre_archivo.replace("-", "0"))
-    
-    if periodo_a_ingresar not in periodos:
-        logging.info(f'Inicia carga de periodo {periodo_a_ingresar}')
-        df = df_from_mdb(directorio, nombre_archivo_zip, nombre_tabla)
-        df_for_database = load_and_transform_data(df=df)
-        insert_info(data=df_for_database, 
-                   database_path=database_path, 
-                   table='datos_balance')
-        filas, columnas = df_for_database.shape
-        logging.info(f"Se insertaron {filas} filas, para el archivo {nombre_archivo_zip}")
-    else:
-         logging.info(f'El período {periodo_a_ingresar} ya se encuentra en la base')
+   main()

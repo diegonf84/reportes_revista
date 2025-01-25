@@ -1,15 +1,8 @@
 # Reportes del Mercado Asegurador
 
-El objetivo principal es automatizar la creación de reportes del sector asegurador
+Sistema automatizado para la generación de reportes del sector asegurador.
 
-Los pasos a seguir son
-* Definir los reportes a incluir
-* Generar las funciones de extracción de información
-* Generar la lógica de transformación
-* Chequear output de los reportes
-* Dar formato en Excel
-
-## Configuración del Entorno
+## Instalación
 
 Para ejecutar este proyecto, asegúrate de tener Python 3.11 instalado en tu sistema. Puedes descargarlo desde [python.org](https://www.python.org/downloads/).
 
@@ -17,41 +10,54 @@ Este proyecto utiliza [Conda](https://docs.conda.io/en/latest/) como sistema de 
 
 Una vez instalado Python, sigue estos pasos para configurar tu entorno de desarrollo:
 
-1. Clona este repositorio en tu máquina local:
-https://github.com/diegonf84/reportes_revista
+1. Clonar repositorio:
+```bash
+git clone https://github.com/diegonf84/reportes_revista
+```
 
-2. Navega al directorio del proyecto:
+2. Crear y activar entorno Conda:
+```bash
+conda env create -f environment.yml
+conda activate nombre_entorno
+```
 
-3. **Crear el Entorno Conda**: Utiliza el archivo `environment.yml` para crear un entorno Conda con todas las dependencias necesarias. Ejecuta:
+3. Instalar módulos locales:
+```bash
+pip install -e .
+```
 
-`conda env create -f environment.yml`
+## Estructura del Proyecto
+```
+├── initial_scripts/               # Scripts iniciales
+│   ├── create_conceptos_reportes.py
+│   ├── create_parametros_reportes.py
+│   └── create_principal_table.py
+│
+├── mdb_files_to_load/            # Archivos a procesar
+│
+├── modules/                       # Módulos principales
+│   ├── __init__.py
+│   ├── carga_base_principal.py
+│   ├── check_cantidad_cias.py
+│   ├── check_ultimos_periodos.py
+│   ├── crea_tabla_subramos.py
+│   └── crea_tabla_ultimos_periodos.py
+│
+├── utils/                        # Utilidades
+│   ├── __init__.py
+│   ├── db_functions.py
+│   └── other_functions.py
+│
+├── .env                         # Variables de entorno
+├── .gitignore                   # Archivos ignorados por git
+├── config_for_load.yml          # Configuración de carga
+├── environment.yml              # Entorno virtual
+└── setup.py                     # Configuración del proyecto
+```
 
-Esto creará un nuevo entorno Conda según las especificaciones del archivo `environment.yml`.
-
-4. **Activar el Entorno Conda**: Una vez creado el entorno, actívalo con:
-
-`conda activate nombre_entorno`
-
-Esto debería mostrar la versión de Python especificada en `environment.yml`. También puedes ejecutar `pip list` para ver las dependencias instaladas en el entorno.
-
-5. **Instalar modulos privados**:
-
-Esto es para instalar las funciones y métodos propios
-
-`pip install -e .`
-
-### Trabajar con el Proyecto
-
-Ahora que has configurado el entorno, puedes comenzar a trabajar en el proyecto. Recuerda activar el entorno Conda (`conda activate nombre_del_entorno`) cada vez que trabajes en el proyecto.
-
-### Desactivar el Entorno
-
-Cuando termines de trabajar en el proyecto, puedes desactivar el entorno Conda con:
-
-`conda deactivate`
+Para más detalles sobre el uso y funcionamiento, consulte la [Guía de Uso](USAGE.md).
 
 ## TODO
-* Separar las funciones de carge de datos y transformación
-* Probar guardado de tablas
-* Quitar dependencia de periodos en query
-* Generar tabla de algún cuadro
+* Incluir los nombres de ramos, subramos y compañias
+* Agregar el resto de conceptos de reportes (primas cedidas, y los que falten)
+* Generar una tabla con los conceptos que van sin subramos alguno (resultados, ganancias, perdidas, etc)

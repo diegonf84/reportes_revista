@@ -25,13 +25,13 @@ def verificar_tipos(df:pd.DataFrame, tipos_esperados:dict) -> bool:
 
 def quita_nulos(x:pd.Series) -> (float | pd.Series):
     """
-    Remueve valores con string vacíos para reemplazarlos por Null
+    Remueve valores con strings vacíos y los reemplaza por NaN.
 
     Args:
-        x (Seres): _description_
+        x (pd.Series): Serie de pandas que puede contener strings vacíos o nulos
 
     Returns:
-        _type_: _description_
+        float | pd.Series: NaN si el valor era vacío/nulo, o el valor original en caso contrario
     """
     if x == '' or x is None:
         return np.nan
