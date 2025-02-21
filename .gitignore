@@ -2,7 +2,8 @@
 revista_tr_database.db
 
 # Ignorar la carpeta /notebook y su contenido, salvo la carpeta mdb_files_to_load
-/notebook/
+/notebook/*
+!/notebook/.gitkeep
 /config/
 /mdb_files_to_load/*
 !/mdb_files_to_load/.gitkeep

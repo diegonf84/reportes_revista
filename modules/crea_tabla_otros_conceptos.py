@@ -9,12 +9,20 @@ import datetime
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def get_recent_data(conn: sqlite3.Connection) -> tuple[pd.DataFrame, pd.DataFrame]:
+   
    """Obtiene datos necesarios de la base de datos"""
-   anio_actual = datetime.datetime.now().year
-   periodo_inicial = int(f"{anio_actual - 2}00")
-
-   base = pd.read_sql_query(f"SELECT * FROM base_balance_ultimos_periodos WHERE periodo > {periodo_inicial}", conn)
-   filtro = pd.read_sql_query("SELECT * FROM conceptos_reportes WHERE es_subramo is TRUE", conn)
+   
+   query = """
+    SELECT * 
+    FROM base_balance_ultimos_periodos 
+    WHERE periodo = (
+        SELECT MAX(periodo) 
+        FROM base_balance_ultimos_periodos
+    )
+    """
+   
+   base = pd.read_sql_query(query, conn)
+   filtro = pd.read_sql_query("SELECT * FROM conceptos_reportes WHERE es_subramo is FALSE", conn)
    params_full = pd.read_sql_query("SELECT * FROM parametros_reportes", conn)
 
    parametros_reportes = params_full.merge(filtro, on=['reporte','referencia'], how='inner')
@@ -23,20 +31,29 @@ def get_recent_data(conn: sqlite3.Connection) -> tuple[pd.DataFrame, pd.DataFram
    return base, parametros_reportes
 
 def generate_subramos_table(data: pd.DataFrame, codigos: dict) -> pd.DataFrame:
-   """Genera tabla agregada por subramos"""
+   
+   """Genera tabla agregada por diferentes conceptos que no tienen subramo asociado"""
+   
    result = data.copy()
 
    for concepto, mapping in codigos.items():
        result[concepto] = result['cod_cuenta'].map(mapping) * result['importe']
 
    return result.groupby(
-       by=['cod_cia', 'periodo', 'cod_subramo'],
+       by=['cod_cia', 'periodo'],
        as_index=False
    ).agg(
-       primas_emitidas=('primas_emitidas', 'sum'),
-       primas_devengadas=('primas_devengadas', 'sum'),
-       siniestros_devengados=('siniestros_devengados', 'sum'),
-       gastos_totales_devengados=('gastos_devengados', 'sum')
+       resultado_tecnico=('resultado_tecnico', 'sum'),
+       resultado_financiero=('resultado_financiero', 'sum'),
+       resultado_operaciones=('resultado_operaciones', 'sum'),
+       impuesto_ganancias=('impuesto_ganancias', 'sum'),
+       deudas_con_asegurados=('deudas_con_asegurados', 'sum'),
+       deudas_con_asegurados_ac_reaseguros=('deudas_con_asegurados_ac_reaseguros', 'sum'),
+       disponibilidades=('disponibilidades', 'sum'),
+       inmuebles_inversion=('inmuebles_inversion', 'sum'),
+       inmuebles_uso_propio=('inmuebles_uso_propio', 'sum'),
+       inversiones=('inversiones', 'sum'),
+       patrimonio_neto=('patrimonio_neto', 'sum'),
    )
 
 def main():
@@ -58,11 +75,11 @@ def main():
            result_df = generate_subramos_table(base, codigos_map)
            
            # Crear nueva tabla
-           conn.execute("DROP TABLE IF EXISTS base_subramos")
-           result_df.to_sql('base_subramos', conn, index=False)
+           conn.execute("DROP TABLE IF EXISTS base_otros_conceptos")
+           result_df.to_sql('base_otros_conceptos', conn, index=False)
            
-           count = pd.read_sql_query("SELECT COUNT(*) as count FROM base_subramos", conn)
-           logging.info(f"Tabla base_subramos creada con {count['count'].iloc[0]:,} registros")
+           count = pd.read_sql_query("SELECT COUNT(*) as count FROM base_otros_conceptos", conn)
+           logging.info(f"Tabla base_otros_conceptos creada con {count['count'].iloc[0]:,} registros")
 
    except sqlite3.Error as e:
        logging.error(f"Error en base de datos: {e}")
