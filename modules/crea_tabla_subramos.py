@@ -36,7 +36,8 @@ def generate_subramos_table(data: pd.DataFrame, codigos: dict) -> pd.DataFrame:
        primas_emitidas=('primas_emitidas', 'sum'),
        primas_devengadas=('primas_devengadas', 'sum'),
        siniestros_devengados=('siniestros_devengados', 'sum'),
-       gastos_totales_devengados=('gastos_devengados', 'sum')
+       gastos_totales_devengados=('gastos_devengados', 'sum'),
+       primas_cedidas=('primas_cedidas', 'sum')
    )
 
 def main():

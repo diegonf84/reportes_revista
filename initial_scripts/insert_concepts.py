@@ -88,7 +88,7 @@ if __name__ == "__main__":
         },
         {
             'reporte': 'nuevort',
-            'referencia': 'inm1',
+            'referencia': 'inm2',
             'concepto': 'inmuebles_uso_propio',
             'es_subramo': False
         },
