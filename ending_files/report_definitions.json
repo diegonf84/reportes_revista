@@ -1,0 +1,61 @@
+{
+    "cuadro_nuevo": {
+      "query": "with primas as (select cod_cia, sum(primas_emitidas) as primas_emit from base_subramos where periodo = '{period}' GROUP by cod_cia) select c.tipo_cia, c.nombre_corto, p.primas_emit as primas_emitidas, b.disponibilidades, b.inversiones, b.inmuebles_inversion + b.inmuebles_uso_propio as inmuebles, b.deudas_con_asegurados - b.deudas_con_asegurados_ac_reaseguros as deudas_total_aseg, b.deudas_con_asegurados_ac_reaseguros, b.deudas_con_asegurados as deudas_neto, b.patrimonio_neto from base_otros_conceptos b left join datos_companias c on b.cod_cia = c.cod_cia left join primas p on b.cod_cia = p.cod_cia order by tipo_cia asc, primas_emitidas desc",
+      "int_columns": ["primas_emitidas", "disponibilidades", "inversiones", "inmuebles", "deudas_total_aseg", "deudas_con_asegurados_ac_reaseguros", 
+        "deudas_neto", "patrimonio_neto"
+      ],
+      "separator": ",",
+      "decimal": "."
+    },
+    
+    "cuadro_principal": {
+      "query": "with datos_base as (select cod_cia, cod_subramo, sum(primas_devengadas) as primas_deveng, sum(primas_emitidas) as primas_emit, sum(siniestros_devengados) as stros_deveng, sum(gastos_totales_devengados) as gastos from base_subramos where periodo = '{period}' GROUP by cod_cia,cod_subramo), datos_ramo as (select c.nombre_corto, r.ramo_denomincion, sum(b.primas_deveng) as primas_devengadas, sum(b.primas_emit) as primas_emitidas, sum(b.stros_deveng) as siniestros, sum(b.gastos) as gastos from datos_base b left join datos_companias c on b.cod_cia = c.cod_cia left join datos_ramos_subramos r on r.cod_subramo = b.cod_subramo where b.cod_subramo not in ('2.070.01','2.070.02','2.060.01','2.060.02','3.000.99') GROUP by c.nombre_corto, r.ramo_denomincion HAVING primas_emitidas <>0) select ramo_denomincion, nombre_corto, primas_emitidas, primas_devengadas, round(siniestros/primas_devengadas*100,2) as pct_stros, round(gastos/primas_devengadas*100,2) as pct_gastos, (primas_devengadas - siniestros - gastos) as resultado, round((primas_devengadas - siniestros - gastos)/primas_devengadas*100,2) as pct_result from datos_ramo order by ramo_denomincion asc, primas_emitidas desc",
+      "int_columns": ["primas_emitidas", "primas_devengadas", "resultado"],
+      "separator": ";",
+      "decimal": ","
+    },
+    
+    "cuadro_principal_suma": {
+      "query": "with datos_base as (select cod_cia, cod_subramo, sum(primas_devengadas) as primas_deveng, sum(primas_emitidas) as primas_emit, sum(siniestros_devengados) as stros_deveng, sum(gastos_totales_devengados) as gastos from base_subramos where periodo = '{period}' GROUP by cod_cia,cod_subramo), datos_ramo as (select r.ramo_denomincion, sum(b.primas_deveng) as primas_devengadas, sum(b.primas_emit) as primas_emitidas, sum(b.stros_deveng) as siniestros, sum(b.gastos) as gastos from datos_base b left join datos_companias c on b.cod_cia = c.cod_cia left join datos_ramos_subramos r on r.cod_subramo = b.cod_subramo where b.cod_subramo not in ('2.070.01','2.070.02','2.060.01','2.060.02','3.000.99') GROUP by r.ramo_denomincion HAVING primas_emitidas <>0) select ramo_denomincion, primas_emitidas, primas_devengadas, round(siniestros/primas_devengadas*100,2) as pct_stros, round(gastos/primas_devengadas*100,2) as pct_gastos, (primas_devengadas - siniestros - gastos) as resultado, round((primas_devengadas - siniestros - gastos)/primas_devengadas*100,2) as pct_result, siniestros,gastos from datos_ramo order by ramo_denomincion asc, primas_emitidas desc",
+      "int_columns": ["primas_emitidas", "primas_devengadas", "resultado"],
+      "separator": ";",
+      "decimal": ","
+    },
+    
+    "ganaron_perdieron": {
+      "query": "with primas as (select cod_cia, sum(primas_devengadas) as primas_deveng from base_subramos where periodo = '{period}' GROUP by cod_cia), base_final as (select c.tipo_cia, c.nombre_corto, p.primas_deveng as primas_devengadas, b.resultado_tecnico, b.resultado_financiero, b.resultado_operaciones, b.impuesto_ganancias from base_otros_conceptos b left join datos_companias c on b.cod_cia = c.cod_cia left join primas p on b.cod_cia = p.cod_cia) select bf.tipo_cia, bf.nombre_corto, bf.resultado_tecnico, round(bf.resultado_tecnico/bf.primas_devengadas*100,2) as pct_rt, bf.resultado_financiero, round(bf.resultado_financiero/bf.primas_devengadas*100,2) as pct_rf, bf.resultado_operaciones, bf.impuesto_ganancias, (bf.resultado_tecnico+bf.resultado_financiero+bf.resultado_operaciones+bf.impuesto_ganancias) as resultado, round((bf.resultado_tecnico+bf.resultado_financiero+bf.resultado_operaciones+bf.impuesto_ganancias)/bf.primas_devengadas*100,2) as pct_result, bf.primas_devengadas from base_final bf order by tipo_cia asc, resultado desc",
+      "int_columns": ["resultado_tecnico", "resultado_financiero", "resultado_operaciones", "impuesto_ganancias", "resultado", 
+        "primas_devengadas"
+      ],
+      "separator": ";",
+      "decimal": ","
+    },
+    
+    "apertura_por_subramo": {
+      "query": "WITH base AS (SELECT c.nombre_corto, r.subramo_denominacion, SUM(b.primas_emitidas) as primas FROM base_subramos_corregida_actual b LEFT JOIN datos_companias c ON b.cod_cia = c.cod_cia LEFT JOIN datos_ramos_subramos r ON r.cod_subramo = b.cod_subramo GROUP BY 1, 2), totales_subramo AS (SELECT subramo_denominacion, SUM(primas) as total_subramo FROM base GROUP BY subramo_denominacion), porcentajes AS (SELECT t1.subramo_denominacion, t1.nombre_corto, t1.primas, (t1.primas * 100.0 / t2.total_subramo) as porcentaje, SUM(t1.primas * 100.0 / t2.total_subramo) OVER (PARTITION BY t1.subramo_denominacion ORDER BY t1.primas DESC) as porcentaje_acumulado FROM base t1 JOIN totales_subramo t2 ON t1.subramo_denominacion = t2.subramo_denominacion) SELECT * FROM porcentajes ORDER BY subramo_denominacion, primas DESC",
+      "int_columns": ["primas"],
+      "separator": ";",
+      "decimal": ","
+    },
+    
+    "primas_cedidas_reaseguro": {
+      "query": "with base as (select cod_cia, sum(primas_emitidas) as primas_emit, sum(primas_cedidas) as primas_ced from base_subramos where periodo = '{period}' GROUP by cod_cia) select c.tipo_cia, c.nombre_corto, b.primas_emit as primas_emitidas, b.primas_ced as primas_cedidas, round(iif(b.primas_emit = 0,0,(b.primas_ced/b.primas_emit )*100),2) as pct_cesion, b.primas_emit - b.primas_ced as primas_retenidas, round(iif(b.primas_emit - b.primas_ced = 0,0,((b.primas_emit - b.primas_ced)/b.primas_emit )*100),2) as pct_ret from base b left join datos_companias c on b.cod_cia = c.cod_cia where b.primas_emit<>0 order by tipo_cia, nombre_corto",
+      "int_columns": ["primas_emitidas", "primas_cedidas", "primas_retenidas"],
+      "separator": ";",
+      "decimal": ","
+    },
+    
+    "ranking_comparativo": {
+      "query": "with base as (select c.nombre_corto, c.tipo_cia, sum(primas_emitidas) as primas, sum(primas_emitidas_anterior) as primas_anterior from base_subramos_corregida_actual b left join datos_companias c on b.cod_cia = c.cod_cia left join datos_ramos_subramos r on r.cod_subramo = b.cod_subramo GROUP by 1,2) select tipo_cia, nombre_corto, primas as primas_emitidas, round(iif(primas_anterior=0,0,((primas/primas_anterior)-1)*100),2) as variacion, primas_anterior from base order by tipo_cia, nombre_corto",
+      "int_columns": ["primas_emitidas", "primas_anterior"],
+      "separator": ";",
+      "decimal": ","
+    },
+    
+    "ranking_comparativo_por_ramo": {
+      "query": "with base as (select c.nombre_corto,r.ramo_denomincion, sum(primas_emitidas) as primas, sum(primas_emitidas_anterior) as primas_anterior from base_subramos_corregida_actual b left join datos_companias c on b.cod_cia = c.cod_cia left join datos_ramos_subramos r on r.cod_subramo = b.cod_subramo GROUP by 1,2) select ramo_denomincion, nombre_corto, primas as primas_emitidas, round(iif(primas_anterior=0,0,((primas/primas_anterior)-1)*100),2) as variacion, primas_anterior from base order by ramo_denomincion, nombre_corto",
+      "int_columns": ["primas_emitidas", "primas_anterior"],
+      "separator": ";",
+      "decimal": ","
+    }
+  }

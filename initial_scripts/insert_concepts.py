@@ -38,71 +38,126 @@ def insert_conceptos(new_data: List[Dict]) -> None:
 # Ejemplo de uso
 if __name__ == "__main__":
     nuevos_registros = [
+        # {
+        #     'reporte': 'ganaron-perdieron',
+        #     'referencia': '1-rt',
+        #     'concepto': 'resultado_tecnico',
+        #     'es_subramo': False
+        # },
+        # {
+        #     'reporte': 'ganaron-perdieron',
+        #     'referencia': '2-rf',
+        #     'concepto': 'resultado_financiero',
+        #     'es_subramo': False
+        # },
+        # {
+        #     'reporte': 'ganaron-perdieron',
+        #     'referencia': '3-roe',
+        #     'concepto': 'resultado_operaciones',
+        #     'es_subramo': False
+        # },
+        # {
+        #     'reporte': 'ganaron-perdieron',
+        #     'referencia': '4-ig',
+        #     'concepto': 'impuesto_ganancias',
+        #     'es_subramo': False
+        # },
+        # {
+        #     'reporte': 'nuevort',
+        #     'referencia': 'deud',
+        #     'concepto': 'deudas_con_asegurados',
+        #     'es_subramo': False
+        # },
+        # {
+        #     'reporte': 'nuevort',
+        #     'referencia': 'deudreas',
+        #     'concepto': 'deudas_con_asegurados_ac_reaseguros',
+        #     'es_subramo': False
+        # },
+        # {
+        #     'reporte': 'nuevort',
+        #     'referencia': 'disp',
+        #     'concepto': 'disponibilidades',
+        #     'es_subramo': False
+        # },
+        # {
+        #     'reporte': 'nuevort',
+        #     'referencia': 'inm1',
+        #     'concepto': 'inmuebles_inversion',
+        #     'es_subramo': False
+        # },
+        # {
+        #     'reporte': 'nuevort',
+        #     'referencia': 'inm2',
+        #     'concepto': 'inmuebles_uso_propio',
+        #     'es_subramo': False
+        # },
+        # {
+        #     'reporte': 'nuevort',
+        #     'referencia': 'inv',
+        #     'concepto': 'inversiones',
+        #     'es_subramo': False
+        # },
+        # {
+        #     'reporte': 'nuevort',
+        #     'referencia': 'pn',
+        #     'concepto': 'patrimonio_neto',
+        #     'es_subramo': False
+        # }
         {
-            'reporte': 'ganaron-perdieron',
-            'referencia': '1-rt',
-            'concepto': 'resultado_tecnico',
-            'es_subramo': False
+            'reporte': 'anexo14-a',
+            'referencia': 'ref1',
+            'concepto': 'gs_prod_comisiones',
+            'es_subramo': True
         },
         {
-            'reporte': 'ganaron-perdieron',
-            'referencia': '2-rf',
-            'concepto': 'resultado_financiero',
-            'es_subramo': False
+            'reporte': 'anexo14-a',
+            'referencia': 'ref2',
+            'concepto': 'gs_prod_otros',
+            'es_subramo': True
         },
         {
-            'reporte': 'ganaron-perdieron',
-            'referencia': '3-roe',
-            'concepto': 'resultado_operaciones',
-            'es_subramo': False
+            'reporte': 'anexo14-a',
+            'referencia': 'ref4',
+            'concepto': 'gs_exp_sueldos',
+            'es_subramo': True
         },
         {
-            'reporte': 'ganaron-perdieron',
-            'referencia': '4-ig',
-            'concepto': 'impuesto_ganancias',
-            'es_subramo': False
+            'reporte': 'anexo14-a',
+            'referencia': 'ref5',
+            'concepto': 'gs_exp_ret_sindicos',
+            'es_subramo': True
         },
         {
-            'reporte': 'nuevort',
-            'referencia': 'deud',
-            'concepto': 'deudas_con_asegurados',
-            'es_subramo': False
+            'reporte': 'anexo14-a',
+            'referencia': 'ref6',
+            'concepto': 'gs_exp_honorarios',
+            'es_subramo': True
         },
         {
-            'reporte': 'nuevort',
-            'referencia': 'deudreas',
-            'concepto': 'deudas_con_asegurados_ac_reaseguros',
-            'es_subramo': False
+            'reporte': 'anexo14-a',
+            'referencia': 'ref7',
+            'concepto': 'gs_exp_impuestos',
+            'es_subramo': True
         },
         {
-            'reporte': 'nuevort',
-            'referencia': 'disp',
-            'concepto': 'disponibilidades',
-            'es_subramo': False
+            'reporte': 'anexo14-a',
+            'referencia': 'ref8',
+            'concepto': 'gs_exp_publicidad',
+            'es_subramo': True
         },
         {
-            'reporte': 'nuevort',
-            'referencia': 'inm1',
-            'concepto': 'inmuebles_inversion',
-            'es_subramo': False
+            'reporte': 'anexo14-a',
+            'referencia': 'ref9',
+            'concepto': 'gs_exp_otros',
+            'es_subramo': True
         },
         {
-            'reporte': 'nuevort',
-            'referencia': 'inm2',
-            'concepto': 'inmuebles_uso_propio',
-            'es_subramo': False
+            'reporte': 'anexo14-a',
+            'referencia': 'ref11',
+            'concepto': 'gs_a_c_reaseg',
+            'es_subramo': True
         },
-        {
-            'reporte': 'nuevort',
-            'referencia': 'inv',
-            'concepto': 'inversiones',
-            'es_subramo': False
-        },
-        {
-            'reporte': 'nuevort',
-            'referencia': 'pn',
-            'concepto': 'patrimonio_neto',
-            'es_subramo': False
-        }
+
     ]
     insert_conceptos(nuevos_registros)
