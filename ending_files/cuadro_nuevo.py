@@ -31,7 +31,9 @@ def export_query_to_csv() -> None:
             b.deudas_con_asegurados - b.deudas_con_asegurados_ac_reaseguros as deudas_total_aseg,
             b.deudas_con_asegurados_ac_reaseguros,
             b.deudas_con_asegurados as deudas_neto,
-            b.patrimonio_neto
+            b.patrimonio_neto,
+            b.inmuebles_inversion,
+            b.inmuebles_uso_propio
             from base_otros_conceptos b 
             left join datos_companias c on b.cod_cia = c.cod_cia
             left join primas p on b.cod_cia = p.cod_cia

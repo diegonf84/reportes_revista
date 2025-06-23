@@ -63,7 +63,11 @@ def generate_subramos_table(data: pd.DataFrame, codigos: Dict[str, Dict[str, int
         primas_devengadas=('primas_devengadas', 'sum'),
         siniestros_devengados=('siniestros_devengados', 'sum'),
         gastos_totales_devengados=('gastos_devengados', 'sum'),
-        primas_cedidas=('primas_cedidas', 'sum')
+        primas_cedidas=('primas_cedidas', 'sum'),
+        gs_prod_comisiones=('gs_prod_comisiones', 'sum'),
+        gs_prod_otros=('gs_prod_otros', 'sum'),
+        gs_exp_sueldos=('gs_exp_sueldos', 'sum'),
+        gs_a_c_reaseguro=('gs_a_c_reaseg', 'sum'),
     )
 
 def main(periodo_inicial: Optional[int] = None) -> None:
