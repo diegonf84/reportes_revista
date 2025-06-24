@@ -9,3 +9,4 @@ dependencies:
     - jupyterlab
     - python-dotenv
     - PyYAML
+    - openpyxl

@@ -36,3 +36,6 @@ __pycache__/
 
 ### CSV Files ###
 *.csv
+
+### XLS Files ###
+*.xlsx
