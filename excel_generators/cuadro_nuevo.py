@@ -1,6 +1,6 @@
 import pandas as pd
 import openpyxl
-from openpyxl.styles import Font, Border, Side
+from openpyxl.styles import Font, Border, Side, Alignment
 import os
 import logging
 import argparse
@@ -23,10 +23,17 @@ def create_excel_cuadro_nuevo(csv_path: str, output_path: str, period: str) -> N
     ws = wb.active
     ws.title = f"Cuadro Nuevo {period}"
     
+    # Quitar las líneas de cuadrícula de la hoja
+    ws.sheet_view.showGridLines = False
+    
     # Definir estilos
     header_font = Font(name="Arial", size=10, bold=True)
+    title_font = Font(name="Arial", size=10, bold=True, underline="single") # Fuente para títulos de sección (ART, etc.)
     normal_font = Font(name="Arial", size=10)
     total_font = Font(name="Arial", size=10, bold=True)
+    
+    # Definir alineación
+    center_alignment = Alignment(horizontal='center')
     
     # Definir bordes
     thin_border = Border(
@@ -69,7 +76,7 @@ def create_excel_cuadro_nuevo(csv_path: str, output_path: str, period: str) -> N
         
         # Título del tipo (ej: "ART", "Generales") en columna A
         cell_tipo = ws.cell(row=current_row, column=1, value=tipo_cia)
-        cell_tipo.font = header_font
+        cell_tipo.font = title_font # Aplicar fuente con subrayado
         current_row += 1
         
         # Headers de columnas, comenzando en columna B
@@ -77,6 +84,9 @@ def create_excel_cuadro_nuevo(csv_path: str, output_path: str, period: str) -> N
             cell = ws.cell(row=current_row, column=col_idx, value=header)
             cell.font = header_font
             cell.border = thin_border
+            # Aplicar alineación centralizada de la columna C en adelante
+            if col_idx > 2:
+                cell.alignment = center_alignment
         current_row += 1
         
         # Datos de las compañías
@@ -93,6 +103,7 @@ def create_excel_cuadro_nuevo(csv_path: str, output_path: str, period: str) -> N
                 cell.font = normal_font
                 cell.border = thin_border
                 cell.number_format = '#,##0,'
+                cell.alignment = center_alignment # Aplicar alineación centralizada
             current_row += 1
         
         # Fila de totales
@@ -107,11 +118,12 @@ def create_excel_cuadro_nuevo(csv_path: str, output_path: str, period: str) -> N
             cell.font = total_font
             cell.border = thin_border
             cell.number_format = '#,##0,'
+            cell.alignment = center_alignment # Aplicar alineación centralizada
         
         current_row += 2  # Espacio entre tipos
     
     # Ajustar ancho de columnas
-    column_widths = [15] + [25] + [15] * (len(headers) - 1)  # Columna A para título, B para ENTIDAD, C en adelante para datos
+    column_widths = [15, 33.5, 14.75, 14.75, 14.75, 14.75, 22.5, 14.75, 14.75, 14.75]
     for col_idx, width in enumerate(column_widths, 1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = width
     
