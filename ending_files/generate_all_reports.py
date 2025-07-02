@@ -2,8 +2,29 @@ import json
 import logging
 import os
 import argparse
-from typing import Dict, Any
+from typing import Dict, Any, Union, List
 from utils.report_generator import export_query_to_csv
+
+def process_query(query: Union[str, List[str]], period: str) -> str:
+    """
+    Procesa una query que puede estar en formato string o array de strings.
+    
+    Args:
+        query: Query en formato string simple o array de strings
+        period: Período para reemplazar en la query
+        
+    Returns:
+        str: Query procesada como string único
+    """
+    if isinstance(query, list):
+        # Si es array, unir con espacios y saltos de línea
+        query_str = ' '.join(query)
+    else:
+        # Si es string, usar tal como está
+        query_str = query
+    
+    # Reemplazar placeholder del período
+    return query_str.format(period=period)
 
 def generate_all_reports(
     definitions_file: str = 'report_definitions.json',
@@ -52,11 +73,11 @@ def generate_all_reports(
         logging.info(f"Generando reporte: {report_name}")
         
         try:
-            # Reemplazar placeholders en la query con el período actual
-            query = report_config["query"].format(period=period)
+            # Procesar query (maneja tanto string como array)
+            processed_query = process_query(report_config["query"], period)
             
             export_query_to_csv(
-                query=query,
+                query=processed_query,
                 output_path=output_file,
                 int_columns=report_config.get("int_columns", []),
                 separator=report_config.get("separator", ";"),
