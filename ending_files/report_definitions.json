@@ -203,5 +203,38 @@
       "int_columns": ["primas_emitidas", "primas_anterior"],
       "separator": ";",
       "decimal": ","
+    },
+
+  "sueldos_y_gastos": {
+      "query": [
+        "with base as (",
+        "    select cod_cia, primas_devengadas, ",
+        "           (gs_prod_comisiones + gs_prod_otros - gs_a_c_reaseguro) as gastos_produccion, ",
+        "           gs_exp_sueldos as gastos_sueldos, ",
+        "           gs_a_c_reaseguro as gastos_reaseguro, ",
+        "           gastos_totales_devengados as gastos_totales ",
+        "    from base_subramos ",
+        "    where periodo = '{period}'",
+        "), ",
+        "por_cia as (",
+        "    select cod_cia, ",
+        "           sum(primas_devengadas) as total_primas_devengadas, ",
+        "           sum(gastos_produccion) as total_gs_prod, ",
+        "           sum(gastos_sueldos) as total_sueldos, ",
+        "           sum(gastos_totales) as total_gs, ",
+        "           sum(gastos_reaseguro) as gs_reaseguro ",
+        "    from base ",
+        "    GROUP by cod_cia",
+        ") ",
+        "select dc.nombre_corto, dc.tipo_cia, c.total_primas_devengadas, ",
+        "       c.total_gs_prod, c.total_sueldos, c.total_gs, c.gs_reaseguro ",
+        "from por_cia c ",
+        "join datos_companias dc using (cod_cia) ",
+        "order by tipo_cia, nombre_corto"
+      ],
+      "int_columns": ["total_primas_devengadas", "total_gs_prod", "total_sueldos", "total_gs", "gs_reaseguro"],
+      "separator": ";",
+      "decimal": ","
     }
+
   }
