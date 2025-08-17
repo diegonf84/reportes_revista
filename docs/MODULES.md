@@ -295,8 +295,9 @@ Formatea números con separadores de miles para mejor legibilidad.
 
 ## Flujos de Datos
 
-### Flujo de Carga Completa
+### Flujo de Procesamiento Completo (3 Fases)
 ```
+FASE 1: PROCESAMIENTO DE DATOS (modules/)
 Archivo MDB → carga_base_principal.py → datos_balance
                                      ↓
 datos_balance → crea_tabla_ultimos_periodos.py → base_balance_ultimos_periodos
@@ -304,6 +305,14 @@ datos_balance → crea_tabla_ultimos_periodos.py → base_balance_ultimos_period
 base_balance_ultimos_periodos → crea_tabla_otros_conceptos.py → base_otros_conceptos
                              ↓
 base_subramos → crea_tabla_subramos_corregida.py → base_subramos_corregida_actual
+                                                 ↓
+FASE 2: GENERACIÓN CSV (ending_files/)
+base_subramos + base_otros_conceptos + base_subramos_corregida_actual
+                ↓
+generate_all_reports.py → CSV Reports (ending_files/{period}/)
+                ↓
+FASE 3: GENERACIÓN EXCEL (excel_generators/)
+CSV Reports → excel_generators/*.py → Excel Reports (excel_final_files/{period}/)
 ```
 
 ### Flujo de Verificación
@@ -311,6 +320,102 @@ base_subramos → crea_tabla_subramos_corregida.py → base_subramos_corregida_a
 Archivo MDB → check_cantidad_cias.py → Validación
 datos_balance → check_ultimos_periodos.py → Lista de períodos
 ```
+
+---
+
+## Pipeline de Generación de Reportes
+
+### Fase 2: Generación de CSV
+
+#### `generate_all_reports.py`
+**Ubicación:** `ending_files/generate_all_reports.py`
+
+**Propósito:** Ejecuta consultas SQL definidas en JSON para generar reportes CSV.
+
+**Parámetros:**
+- `--period`: Período en formato YYYYPP
+- `--report`: Reporte específico (opcional)
+- `--output_dir`: Directorio de salida (por defecto: `./`)
+- `--definitions`: Archivo JSON de definiciones (por defecto: `report_definitions.json`)
+
+**Archivo de definiciones (`report_definitions.json`):**
+Contiene la configuración de cada reporte:
+```json
+{
+  "nombre_reporte": {
+    "query": ["SELECT...", "FROM...", "WHERE periodo = '{period}'"],
+    "int_columns": ["columna1", "columna2"],
+    "separator": ";",
+    "decimal": ","
+  }
+}
+```
+
+**Reportes disponibles:**
+- `cuadro_principal`: Análisis por ramo con métricas de siniestralidad
+- `cuadro_nuevo`: Datos patrimoniales y financieros
+- `ganaron_perdieron`: Resultados técnicos y financieros
+- `apertura_por_subramo`: Concentración por subramo con porcentajes
+- `primas_cedidas_reaseguro`: Análisis de cesión y retención
+- `ranking_comparativo`: Ranking de compañías con variación anual
+- `ranking_comparativo_por_ramo`: Ranking por ramo con variación
+- `sueldos_y_gastos`: Análisis de estructura de gastos
+
+**Dependencias de tablas:**
+```
+cuadro_principal     → base_subramos, datos_companias, datos_ramos_subramos
+cuadro_nuevo         → base_otros_conceptos, datos_companias
+ganaron_perdieron    → base_subramos, base_otros_conceptos, datos_companias
+apertura_por_subramo → base_subramos_corregida_actual, datos_companias, datos_ramos_subramos
+primas_cedidas_reaseguro → base_subramos, datos_companias
+ranking_comparativo  → base_subramos_corregida_actual, datos_companias
+ranking_comparativo_por_ramo → base_subramos_corregida_actual, datos_companias, datos_ramos_subramos
+sueldos_y_gastos     → base_subramos, datos_companias
+```
+
+### Fase 3: Generación de Excel
+
+#### Generadores individuales
+**Ubicación:** `excel_generators/`
+
+Cada reporte tiene su generador específico que:
+1. Lee el archivo CSV correspondiente de `ending_files/{period}/`
+2. Aplica formato profesional (estilos, bordes, alineación)
+3. Calcula totales y subtotales automáticamente
+4. Genera archivo Excel en `excel_final_files/{period}/`
+
+**Generadores disponibles:**
+- `cuadro_principal.py`: Genera Excel con formato por ramos
+- `cuadro_nuevo.py`: Excel con datos patrimoniales
+- `ganaron_perdieron.py`: Excel de análisis de resultados
+- `apertura_por_subramos.py`: Excel con concentración por subramo
+- `primas_cedidas_reaseguro.py`: Excel de análisis de cesión
+- `ranking_comparativo.py`: Excel de ranking con totales por tipo
+- `ranking_comparativo_por_ramo.py`: Excel de ranking por ramo
+- `sueldos_y_gastos.py`: Excel de estructura de gastos
+
+**Características comunes:**
+- Headers formateados con estilos profesionales
+- Formateo numérico apropiado (miles, decimales, porcentajes)
+- Bordes y alineación consistente
+- Totales y subtotales automáticos
+- Columnas auto-ajustadas
+- Mapeo de nombres para presentación
+
+**Ejemplo de uso:**
+```bash
+# Generar Excel específico
+python excel_generators/ranking_comparativo.py 202501
+
+# El generador busca automáticamente:
+# - Input: ending_files/202501/202501_ranking_comparativo.csv
+# - Output: excel_final_files/202501/202501_ranking_comparativo.xlsx
+```
+
+**Manejo de errores comunes:**
+- `FileNotFoundError`: CSV no encontrado - verificar que se ejecutó la fase 2
+- Formatos de datos incorrectos - verificar separadores y decimales en CSV
+- Problemas de encoding - archivos deben estar en UTF-8
 
 ---
 

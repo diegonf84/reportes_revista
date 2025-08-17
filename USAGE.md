@@ -162,10 +162,88 @@ python modules/crea_tabla_subramos_corregida.py 202502 --test
 
 ---
 
-## Flujo de Trabajo Recomendado
+## Generación de Reportes CSV
 
-### Para cargar un nuevo período:
+Después de procesar los datos con los módulos, el siguiente paso es generar los reportes en formato CSV.
 
+### `generate_all_reports.py`
+**Propósito:** Genera reportes CSV basados en las consultas definidas en `report_definitions.json`
+
+```bash
+# Generar todos los reportes CSV para un período
+python ending_files/generate_all_reports.py --period 202501
+
+# Generar un reporte específico
+python ending_files/generate_all_reports.py --period 202501 --report cuadro_principal
+
+# Especificar directorio de salida
+python ending_files/generate_all_reports.py --period 202501 --output_dir ./reportes
+```
+
+**Reportes disponibles:**
+- `cuadro_principal` - Cuadro principal por ramo y compañía
+- `cuadro_nuevo` - Cuadro con datos patrimoniales
+- `ganaron_perdieron` - Análisis de resultados técnicos y financieros
+- `apertura_por_subramo` - Apertura detallada por subramo
+- `primas_cedidas_reaseguro` - Análisis de cesión al reaseguro
+- `ranking_comparativo` - Ranking comparativo de compañías
+- `ranking_comparativo_por_ramo` - Ranking por ramo
+- `sueldos_y_gastos` - Análisis de gastos operativos
+
+**Archivos generados:**
+- Se crean en `ending_files/{período}/`
+- Formato: `{período}_{nombre_reporte}.csv`
+- Ejemplo: `ending_files/202501/202501_cuadro_principal.csv`
+
+**Dependencias de tablas:**
+- `cuadro_principal`, `ganaron_perdieron`, `primas_cedidas_reaseguro`, `sueldos_y_gastos`: Requieren `base_subramos`
+- `cuadro_nuevo`, `ganaron_perdieron`: Requieren `base_otros_conceptos`
+- `apertura_por_subramo`, `ranking_comparativo`, `ranking_comparativo_por_ramo`: Requieren `base_subramos_corregida_actual`
+
+---
+
+## Generación de Reportes Excel
+
+El paso final es convertir los archivos CSV en reportes Excel formateados.
+
+### Generadores individuales por reporte
+Cada tipo de reporte tiene su propio generador con formato específico:
+
+```bash
+# Generar Excel individual por tipo de reporte
+python excel_generators/cuadro_principal.py 202501
+python excel_generators/ranking_comparativo.py 202501
+python excel_generators/ganaron_perdieron.py 202501
+python excel_generators/apertura_por_subramos.py 202501
+python excel_generators/primas_cedidas_reaseguro.py 202501
+python excel_generators/ranking_comparativo_por_ramo.py 202501
+python excel_generators/cuadro_nuevo.py 202501
+python excel_generators/sueldos_y_gastos.py 202501
+```
+
+**Archivos generados:**
+- Se crean en `excel_final_files/{período}/`
+- Formato: `{período}_{nombre_reporte}.xlsx`
+- Ejemplo: `excel_final_files/202501/202501_cuadro_principal.xlsx`
+
+**Características de los Excel:**
+- Formato profesional con estilos y bordes
+- Fórmulas automáticas para totales y porcentajes
+- Columnas auto-ajustadas
+- Formateo numérico apropiado
+- Headers formateados
+
+**Dependencias:**
+- Requieren los archivos CSV correspondientes en `ending_files/{período}/`
+- Cada generador busca automáticamente su CSV de entrada
+
+---
+
+## Flujo de Trabajo Completo
+
+### Proceso completo para nuevo período (3 fases):
+
+#### **FASE 1: Procesamiento de Datos (modules)**
 ```bash
 # 1. Verificar períodos existentes
 python modules/check_ultimos_periodos.py
@@ -187,6 +265,46 @@ python modules/crea_tabla_subramos_corregida.py 202501 --test
 python modules/crea_tabla_subramos_corregida.py 202501
 ```
 
+#### **FASE 2: Generación de CSV**
+```bash
+# 7. Generar todos los reportes CSV
+python ending_files/generate_all_reports.py --period 202501
+
+# O generar reportes específicos:
+python ending_files/generate_all_reports.py --period 202501 --report cuadro_principal
+python ending_files/generate_all_reports.py --period 202501 --report ranking_comparativo
+```
+
+#### **FASE 3: Generación de Excel**
+```bash
+# 8. Generar todos los archivos Excel formateados
+python excel_generators/cuadro_principal.py 202501
+python excel_generators/cuadro_nuevo.py 202501
+python excel_generators/ganaron_perdieron.py 202501
+python excel_generators/apertura_por_subramos.py 202501
+python excel_generators/primas_cedidas_reaseguro.py 202501
+python excel_generators/ranking_comparativo.py 202501
+python excel_generators/ranking_comparativo_por_ramo.py 202501
+python excel_generators/sueldos_y_gastos.py 202501
+```
+
+### Para regenerar solo reportes (datos ya procesados):
+
+#### **Solo CSV:**
+```bash
+# Regenerar todos los reportes CSV
+python ending_files/generate_all_reports.py --period 202501
+
+# Regenerar reporte específico
+python ending_files/generate_all_reports.py --period 202501 --report ranking_comparativo
+```
+
+#### **Solo Excel:**
+```bash
+# Regenerar Excel específico (requiere CSV previo)
+python excel_generators/ranking_comparativo.py 202501
+```
+
 ### Para análisis de datos existentes:
 
 ```bash
@@ -196,6 +314,9 @@ python modules/check_ultimos_periodos.py
 # Regenerar tablas de análisis
 python modules/crea_tabla_otros_conceptos.py
 python modules/crea_tabla_subramos_corregida.py 202501
+
+# Regenerar reportes completos
+python ending_files/generate_all_reports.py --period 202501
 ```
 
 ---

@@ -31,19 +31,21 @@ pip install -e .
 ├── docs/                          # Documentación
 │   └── MODULES.md                 # Documentación técnica detallada
 │
-├── ending_files/                  # Archivos CSV finales por período
+├── ending_files/                  # FASE 2: Archivos CSV finales por período
+│   ├── 202404/
+│   ├── 202501/
+│   ├── generate_all_reports.py    # Generador principal de CSV
+│   └── report_definitions.json    # Definiciones de reportes
+│
+├── excel_final_files/            # FASE 3: Archivos Excel finales por período
 │   ├── 202404/
 │   └── 202501/
 │
-├── excel_final_files/            # Archivos Excel finales por período
-│   ├── 202404/
-│   └── 202501/
-│
-├── excel_generators/             # Generadores de reportes Excel
+├── excel_generators/             # FASE 3: Generadores de reportes Excel
 │   ├── apertura_por_subramos.py
 │   ├── cuadro_principal.py
 │   ├── ranking_comparativo.py
-│   └── ...
+│   └── ... (8 generadores totales)
 │
 ├── initial_scripts/              # Scripts de configuración inicial
 │   ├── create_conceptos_reportes.py
@@ -55,7 +57,7 @@ pip install -e .
 │   ├── 2025-1.mdb
 │   └── ...
 │
-├── modules/                      # Módulos principales (trabajan con períodos YYYYPP)
+├── modules/                      # FASE 1: Módulos principales (trabajan con períodos YYYYPP)
 │   ├── common.py                 # Utilidades compartidas
 │   ├── carga_base_principal.py   # Carga datos desde MDB
 │   ├── check_cantidad_cias.py    # Verificación de compañías
@@ -87,7 +89,9 @@ echo "DATABASE=/ruta/a/tu/base_datos.db" > .env
 # Formato: YYYY-P.zip (ej: 2025-1.zip)
 ```
 
-### Workflow Típico
+### Workflow Completo (3 Fases)
+
+#### **Fase 1: Procesamiento de Datos**
 ```bash
 # 1. Verificar períodos existentes
 python modules/check_ultimos_periodos.py
@@ -102,6 +106,20 @@ python modules/carga_base_principal.py 202501
 python modules/crea_tabla_ultimos_periodos.py --periodo_inicial 202301
 python modules/crea_tabla_otros_conceptos.py
 python modules/crea_tabla_subramos_corregida.py 202501
+```
+
+#### **Fase 2: Generación de CSV**
+```bash
+# 5. Generar reportes CSV
+python ending_files/generate_all_reports.py --period 202501
+```
+
+#### **Fase 3: Generación de Excel**
+```bash
+# 6. Generar reportes Excel formateados
+python excel_generators/cuadro_principal.py 202501
+python excel_generators/ranking_comparativo.py 202501
+# ... (otros generadores según necesidad)
 ```
 
 ### Documentación
@@ -120,16 +138,19 @@ Todos los módulos usan períodos en formato **YYYYPP**:
 ## Estado del Proyecto
 
 ### ✅ Completado
-- Sistema de carga de datos desde archivos MDB
-- Validación y verificación de compañías
-- Generación de tablas de análisis
-- Documentación completa y actualizada
-- Manejo consistente de períodos
+- **Fase 1:** Sistema de carga y procesamiento de datos desde archivos MDB
+- **Fase 2:** Generación automática de reportes CSV configurables 
+- **Fase 3:** Generadores de reportes Excel formateados y profesionales
+- Validación y verificación de compañías con comparaciones
+- Pipeline completo desde datos raw hasta reportes finales
+- Documentación completa de las 3 fases
+- Manejo consistente de períodos (YYYYPP)
+- Testing de cálculos antes de producción
 
 ### 🔄 En Desarrollo
-- Generadores de reportes Excel automatizados
 - Dashboard de visualización de datos
-- API REST para acceso a datos
+- API REST para acceso a reportes
+- Automatización completa del pipeline
 
 ### 📋 Pendiente
 - Incluir nombres completos de ramos, subramos y compañías
