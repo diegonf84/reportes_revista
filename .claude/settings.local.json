@@ -1,8 +1,10 @@
 {
+  "outputStyle": "concise",
   "permissions": {
     "allow": [
       "Bash(rm:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []

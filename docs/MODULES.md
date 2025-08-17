@@ -236,8 +236,14 @@ python modules/crea_tabla_otros_conceptos.py
 # Procesar marzo 2025
 python modules/crea_tabla_subramos_corregida.py 202501
 
+# Procesar junio 2025
+python modules/crea_tabla_subramos_corregida.py 202502
+
 # Procesar diciembre 2025
 python modules/crea_tabla_subramos_corregida.py 202504
+
+# MODO TESTING: Verificar cálculos antes de ejecutar
+python modules/crea_tabla_subramos_corregida.py 202502 --test
 ```
 
 **Columnas de salida:**
@@ -245,6 +251,19 @@ python modules/crea_tabla_subramos_corregida.py 202504
 - `cod_subramo`: Código de subramo
 - `primas_emitidas`: Primas del período actual (corregidas)
 - `primas_emitidas_anterior`: Primas del período anterior (corregidas)
+
+**Modo Testing:**
+El parámetro `--test` genera un archivo CSV (`modules/testing_data/{periodo}_test_simple.csv`) con:
+- Todas las columnas de períodos involucrados side-by-side
+- Cálculos paso a paso para compañías especiales
+- Fórmulas aplicadas para verificación manual
+- Permite validar la lógica antes de ejecutar en producción
+
+**Estructura del archivo de testing:**
+```csv
+cod_cia,cod_subramo,periodo_procesado,trimestre,actual_T2,diciembre_anterior,junio_anterior,calculo_actual,formula
+0829,01,202502,2,1000,2000,750,2250,"actual_T2 + diciembre_anterior - junio_anterior"
+```
 
 ---
 

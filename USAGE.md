@@ -130,15 +130,35 @@ python modules/crea_tabla_otros_conceptos.py
 # Procesar subramos para marzo (trimestre 1)
 python modules/crea_tabla_subramos_corregida.py 202501
 
+# Procesar subramos para junio (trimestre 2)
+python modules/crea_tabla_subramos_corregida.py 202502
+
+# Procesar subramos para septiembre (trimestre 3)
+python modules/crea_tabla_subramos_corregida.py 202503
+
 # Procesar subramos para diciembre (trimestre 4)  
 python modules/crea_tabla_subramos_corregida.py 202504
 ```
 
 **Qué hace:**
-- Aplica lógica específica según el trimestre
-- Para marzo: considera datos de diciembre y junio anteriores
-- Para diciembre: considera datos de junio del mismo año
-- Maneja compañías con tratamiento especial (códigos 0829, 0541, 0686)
+- Aplica lógica específica según el trimestre para normalizar períodos de 12 meses
+- **Marzo:** marzo_actual - junio_anterior + diciembre_anterior
+- **Junio:** junio_actual + diciembre_anterior - junio_anterior  
+- **Septiembre:** comparación directa (sin corrección)
+- **Diciembre:** diciembre_actual - junio_actual
+- Maneja compañías especiales que cierran en diciembre (códigos 0829, 0541, 0686)
+
+**Modo Testing (verificar cálculos antes de ejecutar):**
+```bash
+# Generar archivo CSV para verificar manualmente los cálculos
+python modules/crea_tabla_subramos_corregida.py 202502 --test
+```
+
+**Salida del testing:**
+- Crea archivo `modules/testing_data/202502_test_simple.csv`
+- Muestra todas las columnas de períodos side-by-side
+- Incluye cálculos paso a paso y fórmulas aplicadas
+- Permite verificar manualmente antes de ejecutar en producción
 
 ---
 
@@ -159,6 +179,11 @@ python modules/carga_base_principal.py 202501
 # 4. Crear tablas de análisis
 python modules/crea_tabla_ultimos_periodos.py --periodo_inicial 202301
 python modules/crea_tabla_otros_conceptos.py
+
+# 5. TESTING: Verificar cálculos de subramos antes de ejecutar
+python modules/crea_tabla_subramos_corregida.py 202501 --test
+
+# 6. Si los cálculos son correctos, ejecutar en producción
 python modules/crea_tabla_subramos_corregida.py 202501
 ```
 
