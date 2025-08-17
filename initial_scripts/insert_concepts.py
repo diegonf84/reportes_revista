@@ -104,58 +104,64 @@ if __name__ == "__main__":
         #     'concepto': 'patrimonio_neto',
         #     'es_subramo': False
         # }
+        # {
+        #     'reporte': 'anexo14-a',
+        #     'referencia': 'ref1',
+        #     'concepto': 'gs_prod_comisiones',
+        #     'es_subramo': True
+        # },
+        # {
+        #     'reporte': 'anexo14-a',
+        #     'referencia': 'ref2',
+        #     'concepto': 'gs_prod_otros',
+        #     'es_subramo': True
+        # },
+        # {
+        #     'reporte': 'anexo14-a',
+        #     'referencia': 'ref4',
+        #     'concepto': 'gs_exp_sueldos',
+        #     'es_subramo': True
+        # },
+        # {
+        #     'reporte': 'anexo14-a',
+        #     'referencia': 'ref5',
+        #     'concepto': 'gs_exp_ret_sindicos',
+        #     'es_subramo': True
+        # },
+        # {
+        #     'reporte': 'anexo14-a',
+        #     'referencia': 'ref6',
+        #     'concepto': 'gs_exp_honorarios',
+        #     'es_subramo': True
+        # },
+        # {
+        #     'reporte': 'anexo14-a',
+        #     'referencia': 'ref7',
+        #     'concepto': 'gs_exp_impuestos',
+        #     'es_subramo': True
+        # },
+        # {
+        #     'reporte': 'anexo14-a',
+        #     'referencia': 'ref8',
+        #     'concepto': 'gs_exp_publicidad',
+        #     'es_subramo': True
+        # },
+        # {
+        #     'reporte': 'anexo14-a',
+        #     'referencia': 'ref9',
+        #     'concepto': 'gs_exp_otros',
+        #     'es_subramo': True
+        # },
+        # {
+        #     'reporte': 'anexo14-a',
+        #     'referencia': 'ref11',
+        #     'concepto': 'gs_a_c_reaseg',
+        #     'es_subramo': True
+        # },
         {
-            'reporte': 'anexo14-a',
-            'referencia': 'ref1',
-            'concepto': 'gs_prod_comisiones',
-            'es_subramo': True
-        },
-        {
-            'reporte': 'anexo14-a',
-            'referencia': 'ref2',
-            'concepto': 'gs_prod_otros',
-            'es_subramo': True
-        },
-        {
-            'reporte': 'anexo14-a',
-            'referencia': 'ref4',
-            'concepto': 'gs_exp_sueldos',
-            'es_subramo': True
-        },
-        {
-            'reporte': 'anexo14-a',
-            'referencia': 'ref5',
-            'concepto': 'gs_exp_ret_sindicos',
-            'es_subramo': True
-        },
-        {
-            'reporte': 'anexo14-a',
-            'referencia': 'ref6',
-            'concepto': 'gs_exp_honorarios',
-            'es_subramo': True
-        },
-        {
-            'reporte': 'anexo14-a',
-            'referencia': 'ref7',
-            'concepto': 'gs_exp_impuestos',
-            'es_subramo': True
-        },
-        {
-            'reporte': 'anexo14-a',
-            'referencia': 'ref8',
-            'concepto': 'gs_exp_publicidad',
-            'es_subramo': True
-        },
-        {
-            'reporte': 'anexo14-a',
+            'reporte': 'anexo8-a',
             'referencia': 'ref9',
-            'concepto': 'gs_exp_otros',
-            'es_subramo': True
-        },
-        {
-            'reporte': 'anexo14-a',
-            'referencia': 'ref11',
-            'concepto': 'gs_a_c_reaseg',
+            'concepto': 'deudas_con_asegurados_rtip',
             'es_subramo': True
         },
 

@@ -6,8 +6,8 @@ from dotenv import load_dotenv
 import sqlite3
 import logging
 from typing import Optional
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+from .common import validate_period, setup_logging
+from utils.db_manager import db_manager
 
 def create_recent_periods_table(periodo_inicial: Optional[int] = None) -> None:
     """
@@ -28,39 +28,51 @@ def create_recent_periods_table(periodo_inicial: Optional[int] = None) -> None:
     Raises:
         sqlite3.Error: Si ocurre un error en las operaciones de base de datos
     """
-    load_dotenv()
-    database_path = os.getenv('DATABASE')
-    
     # Si no se especifica periodo, usar los últimos 2 años
     if periodo_inicial is None:
         import datetime
         anio_actual = datetime.datetime.now().year
         periodo_inicial = int(f"{anio_actual - 2}00")
+    else:
+        validate_period(periodo_inicial)
 
     logging.info(f"Filtrando datos desde el período: {periodo_inicial}")
 
     try:
-        with sqlite3.connect(database_path) as conn:
-            conn.execute("DROP TABLE IF EXISTS base_balance_ultimos_periodos")
-            
-            query = f"""
-            CREATE TABLE base_balance_ultimos_periodos AS 
-            SELECT * FROM datos_balance 
-            WHERE periodo >= {periodo_inicial}
-            """
-            conn.execute(query)
-            
-            count = pd.read_sql_query("SELECT COUNT(*) as count FROM base_balance_ultimos_periodos", conn)
-            logging.info(f"Tabla creada con {count['count'].iloc[0]:,} registros")
-            
-    except sqlite3.Error as e:
-        logging.error(f"Error en base de datos: {e}")
+        db_manager.drop_table_if_exists("base_balance_ultimos_periodos")
+        
+        query = f"""
+        CREATE TABLE base_balance_ultimos_periodos AS 
+        SELECT * FROM datos_balance 
+        WHERE periodo >= {periodo_inicial}
+        """
+        db_manager.execute_non_query(query)
+        
+        count = db_manager.get_table_count("base_balance_ultimos_periodos")
+        logging.info(f"Tabla creada con {count:,} registros")
+        
+    except Exception as e:
+        logging.error(f"Error creando tabla: {e}")
         raise
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Crea tabla con datos de períodos recientes')
-    parser.add_argument('--periodo_inicial', type=int, 
-                        help='Período inicial (formato YYYYPP) desde el cual filtrar los datos')
-    args = parser.parse_args()
+    setup_logging()
     
+    parser = argparse.ArgumentParser(
+        description='Crea tabla con datos de períodos recientes',
+        epilog="""
+Ejemplos:
+  python modules/crea_tabla_ultimos_periodos.py --periodo_inicial 202301
+  python modules/crea_tabla_ultimos_periodos.py  # Usa últimos 2 años por defecto
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    
+    parser.add_argument(
+        '--periodo_inicial', 
+        type=int, 
+        help='Período inicial (formato YYYYPP) desde el cual filtrar los datos'
+    )
+    
+    args = parser.parse_args()
     create_recent_periods_table(args.periodo_inicial)

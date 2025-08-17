@@ -28,36 +28,110 @@ pip install -e .
 
 ## Estructura del Proyecto
 ```
-├── initial_scripts/               # Scripts iniciales
+├── docs/                          # Documentación
+│   └── MODULES.md                 # Documentación técnica detallada
+│
+├── ending_files/                  # Archivos CSV finales por período
+│   ├── 202404/
+│   └── 202501/
+│
+├── excel_final_files/            # Archivos Excel finales por período
+│   ├── 202404/
+│   └── 202501/
+│
+├── excel_generators/             # Generadores de reportes Excel
+│   ├── apertura_por_subramos.py
+│   ├── cuadro_principal.py
+│   ├── ranking_comparativo.py
+│   └── ...
+│
+├── initial_scripts/              # Scripts de configuración inicial
 │   ├── create_conceptos_reportes.py
 │   ├── create_parametros_reportes.py
 │   └── create_principal_table.py
 │
-├── mdb_files_to_load/            # Archivos a procesar
+├── mdb_files_to_load/           # Archivos MDB a procesar (formato YYYY-P.zip)
+│   ├── 2024-4.mdb
+│   ├── 2025-1.mdb
+│   └── ...
 │
-├── modules/                       # Módulos principales
-│   ├── __init__.py
-│   ├── carga_base_principal.py
-│   ├── check_cantidad_cias.py
-│   ├── check_ultimos_periodos.py
-│   ├── crea_tabla_subramos.py
-│   └── crea_tabla_ultimos_periodos.py
+├── modules/                      # Módulos principales (trabajan con períodos YYYYPP)
+│   ├── common.py                 # Utilidades compartidas
+│   ├── carga_base_principal.py   # Carga datos desde MDB
+│   ├── check_cantidad_cias.py    # Verificación de compañías
+│   ├── check_ultimos_periodos.py # Lista períodos disponibles
+│   ├── crea_tabla_ultimos_periodos.py    # Tabla de períodos recientes
+│   ├── crea_tabla_otros_conceptos.py     # Conceptos financieros
+│   └── crea_tabla_subramos_corregida.py  # Tabla subramos corregida
 │
-├── utils/                        # Utilidades
-│   ├── __init__.py
-│   ├── db_functions.py
-│   └── other_functions.py
+├── utils/                       # Utilidades del sistema
+│   ├── db_functions.py          # Funciones de base de datos
+│   ├── db_manager.py            # Gestor de conexiones DB
+│   ├── other_functions.py       # Funciones auxiliares
+│   └── report_generator.py      # Generador de reportes
 │
-├── .env                         # Variables de entorno
-├── .gitignore                   # Archivos ignorados por git
-├── config_for_load.yml          # Configuración de carga
-├── environment.yml              # Entorno virtual
-└── setup.py                     # Configuración del proyecto
+├── .env                         # Variables de entorno (DATABASE=...)
+├── environment.yml              # Configuración entorno Conda
+├── USAGE.md                     # Guía de uso práctica
+└── setup.py                     # Configuración del paquete
 ```
 
-Para más detalles sobre el uso y funcionamiento, consulte la [Guía de Uso](USAGE.md).
+## Uso Rápido
 
-## TODO
-* Incluir los nombres de ramos, subramos y compañias
-* Agregar el resto de conceptos de reportes (primas cedidas, y los que falten)
-* Generar una tabla con los conceptos que van sin subramos alguno (resultados, ganancias, perdidas, etc)
+### Configuración Inicial
+```bash
+# 1. Configurar variables de entorno
+echo "DATABASE=/ruta/a/tu/base_datos.db" > .env
+
+# 2. Colocar archivos en mdb_files_to_load/
+# Formato: YYYY-P.zip (ej: 2025-1.zip)
+```
+
+### Workflow Típico
+```bash
+# 1. Verificar períodos existentes
+python modules/check_ultimos_periodos.py
+
+# 2. Validar archivo antes de cargar
+python modules/check_cantidad_cias.py 202501 202404
+
+# 3. Cargar nuevo período
+python modules/carga_base_principal.py 202501
+
+# 4. Generar tablas de análisis
+python modules/crea_tabla_ultimos_periodos.py --periodo_inicial 202301
+python modules/crea_tabla_otros_conceptos.py
+python modules/crea_tabla_subramos_corregida.py 202501
+```
+
+### Documentación
+
+- **[USAGE.md](USAGE.md)** - Guía práctica paso a paso con ejemplos
+- **[docs/MODULES.md](docs/MODULES.md)** - Documentación técnica detallada
+
+### Formato de Períodos
+
+Todos los módulos usan períodos en formato **YYYYPP**:
+- `202501` = Marzo 2025 (1er trimestre)
+- `202502` = Junio 2025 (2do trimestre)
+- `202503` = Septiembre 2025 (3er trimestre)
+- `202504` = Diciembre 2025 (4to trimestre)
+
+## Estado del Proyecto
+
+### ✅ Completado
+- Sistema de carga de datos desde archivos MDB
+- Validación y verificación de compañías
+- Generación de tablas de análisis
+- Documentación completa y actualizada
+- Manejo consistente de períodos
+
+### 🔄 En Desarrollo
+- Generadores de reportes Excel automatizados
+- Dashboard de visualización de datos
+- API REST para acceso a datos
+
+### 📋 Pendiente
+- Incluir nombres completos de ramos, subramos y compañías
+- Ampliar conceptos de reportes (primas cedidas, etc.)
+- Implementar tests automatizados

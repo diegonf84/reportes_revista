@@ -2,10 +2,11 @@ import pandas as pd
 import sqlite3
 import logging
 import os
+import argparse
 from dotenv import load_dotenv
 from typing import Dict, Tuple
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+from .common import setup_logging
+from utils.db_manager import db_manager
 
 def get_recent_data(conn: sqlite3.Connection) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
@@ -87,11 +88,8 @@ def main() -> None:
     Raises:
         sqlite3.Error: Si ocurre un error en las operaciones con la base de datos
     """
-    load_dotenv()
-    database_path = os.getenv('DATABASE')
-
     try:
-        with sqlite3.connect(database_path) as conn:
+        with db_manager.get_connection() as conn:
             base, parametros_reportes = get_recent_data(conn)
             
             codigos_map = {
@@ -105,15 +103,27 @@ def main() -> None:
             result_df = generate_conceptos_table(base, codigos_map)
             
             # Crear nueva tabla
-            conn.execute("DROP TABLE IF EXISTS base_otros_conceptos")
-            result_df.to_sql('base_otros_conceptos', conn, index=False)
+            db_manager.drop_table_if_exists("base_otros_conceptos")
+            db_manager.insert_dataframe(result_df, "base_otros_conceptos", if_exists='replace')
             
-            count = pd.read_sql_query("SELECT COUNT(*) as count FROM base_otros_conceptos", conn)
-            logging.info(f"Tabla base_otros_conceptos creada con {count['count'].iloc[0]:,} registros")
+            count = db_manager.get_table_count("base_otros_conceptos")
+            logging.info(f"Tabla base_otros_conceptos creada con {count:,} registros")
 
-    except sqlite3.Error as e:
-        logging.error(f"Error en base de datos: {e}")
+    except Exception as e:
+        logging.error(f"Error creando tabla: {e}")
         raise
 
 if __name__ == "__main__":
+    setup_logging()
+    
+    parser = argparse.ArgumentParser(
+        description='Crea tabla con conceptos financieros agregados del último período',
+        epilog="""
+Ejemplos:
+  python modules/crea_tabla_otros_conceptos.py
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    
+    args = parser.parse_args()
     main()
