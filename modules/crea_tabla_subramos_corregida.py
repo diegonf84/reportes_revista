@@ -49,7 +49,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 import sqlite3
 import logging
-from .common import validate_period, setup_logging
+from modules.common import validate_period, setup_logging
 
 logger = logging.getLogger(__name__)
 

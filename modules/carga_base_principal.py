@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from typing import Optional
 from utils.other_functions import quita_nulos, verificar_tipos, df_from_mdb
 from utils.db_functions import insert_info, list_ultimos_periodos
-from .common import validate_period, periodo_to_filename, find_file_in_directory, get_mdb_files_directory, setup_logging
+from modules.common import validate_period, periodo_to_filename, find_file_in_directory, get_mdb_files_directory, setup_logging
 
 
 def load_and_transform_data(df: pd.DataFrame) -> pd.DataFrame:

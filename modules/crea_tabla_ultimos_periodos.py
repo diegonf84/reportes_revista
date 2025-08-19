@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 import sqlite3
 import logging
 from typing import Optional
-from .common import validate_period, setup_logging
+from modules.common import validate_period, setup_logging
 from utils.db_manager import db_manager
 
 def create_recent_periods_table(periodo_inicial: Optional[int] = None) -> None:

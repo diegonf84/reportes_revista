@@ -5,7 +5,7 @@ import os
 import argparse
 from dotenv import load_dotenv
 from typing import Dict, Tuple
-from .common import setup_logging
+from modules.common import setup_logging
 from utils.db_manager import db_manager
 
 def get_recent_data(conn: sqlite3.Connection) -> Tuple[pd.DataFrame, pd.DataFrame]:
