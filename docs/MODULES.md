@@ -2,16 +2,128 @@
 
 Esta documentación proporciona información técnica detallada sobre cada módulo del sistema.
 
+## Arquitectura del Sistema
+
+**🚀 Sistema Dual:**
+- **Console v1.0**: Módulos Python para procesamiento masivo de datos
+- **Web UI v2.0**: Interfaz Flask para gestión de master data
+
 ## Índice
 
-1. [Módulos de Verificación](#módulos-de-verificación)
-2. [Módulos de Carga](#módulos-de-carga)
-3. [Módulos de Procesamiento](#módulos-de-procesamiento)
-4. [Utilidades Compartidas](#utilidades-compartidas)
+1. [Web UI v2.0 - Aplicación Flask](#web-ui-v20---aplicación-flask)
+2. [Console v1.0 - Módulos de Verificación](#console-v10---módulos-de-verificación)
+3. [Console v1.0 - Módulos de Carga](#console-v10---módulos-de-carga)
+4. [Console v1.0 - Módulos de Procesamiento](#console-v10---módulos-de-procesamiento)
+5. [Utilidades Compartidas](#utilidades-compartidas)
 
 ---
 
-## Módulos de Verificación
+## Web UI v2.0 - Aplicación Flask
+
+### Arquitectura
+
+**Patrón MVC con Blueprints:**
+```
+app/
+├── app.py                    # Aplicación principal Flask
+├── routes/                   # Controladores (Blueprints)
+├── templates/                # Vistas (HTML + Jinja2)
+├── static/                   # Assets (CSS, JS)
+└── forms/                    # Modelos de formularios (WTForms)
+```
+
+### `app/app.py`
+
+**Descripción:** Aplicación Flask principal que inicializa el servidor web.
+
+**Características:**
+- Configuración automática desde variables de entorno
+- Registro de blueprints para modularidad
+- Manejo de errores 404/500
+- Integración con logging del sistema existente
+
+**Variables de entorno requeridas:**
+```bash
+FLASK_SECRET_KEY=clave-secreta
+FLASK_PORT=5000
+FLASK_DEBUG=True
+DATABASE=/ruta/a/base_datos.db
+```
+
+**Inicio:**
+```bash
+python app/app.py
+```
+
+### `app/routes/companies.py`
+
+**Descripción:** Blueprint para gestión CRUD de compañías.
+
+**Rutas implementadas:**
+- `GET /companies/` - Lista todas las compañías
+- `GET /companies/add` - Formulario nueva compañía
+- `POST /companies/add` - Procesar nueva compañía
+- `GET /companies/edit/<cod_cia>` - Formulario editar compañía
+- `POST /companies/edit/<cod_cia>` - Procesar edición
+- `POST /companies/delete/<cod_cia>` - Eliminar compañía
+
+**Validaciones implementadas:**
+- Código único de compañía
+- Campos obligatorios
+- Tipos de compañía válidos (Generales, Vida, Retiro, ART, M.T.P.P.)
+- Rangos numéricos (1-9999)
+
+**Integración con base de datos:**
+- Uso directo de SQLite sin ORM
+- Transacciones seguras con context managers
+- Manejo de errores de base de datos
+
+### `app/forms/company_forms.py`
+
+**Descripción:** Formularios Flask-WTF para validación client/server-side.
+
+**Formularios definidos:**
+- `CompanyForm`: Agregar/editar compañías
+  - `cod_cia`: IntegerField con validación de rango
+  - `nombre_corto`: StringField con validación de longitud
+  - `tipo_cia`: SelectField con opciones predefinidas
+
+**Validadores aplicados:**
+- `DataRequired`: Campos obligatorios
+- `NumberRange`: Código entre 1-9999
+- `Length`: Límites de caracteres
+
+### `app/templates/`
+
+**Estructura de plantillas:**
+- `base.html`: Plantilla base con Bootstrap 5
+- `dashboard.html`: Dashboard principal con estadísticas
+- `companies/list.html`: Lista de compañías con búsqueda
+- `companies/add.html`: Formulario nueva compañía
+- `companies/edit.html`: Formulario editar compañía
+
+**Características de UI:**
+- Responsive design con Bootstrap 5
+- Búsqueda en tiempo real con JavaScript
+- Validación visual de formularios
+- Badges de colores por tipo de compañía
+- Confirmaciones de eliminación
+
+### `app/static/`
+
+**Assets estáticos:**
+- `css/custom.css`: Estilos personalizados
+- `js/main.js`: JavaScript para interactividad
+
+**Funcionalidades JavaScript:**
+- Búsqueda de tabla en tiempo real
+- Validación de formularios
+- Confirmaciones de eliminación
+- Tooltips y elementos interactivos
+
+---
+
+## Console v1.0 - Módulos de Verificación
 
 ### `check_ultimos_periodos.py`
 
@@ -76,7 +188,7 @@ python modules/check_cantidad_cias.py 202501 202404
 
 ---
 
-## Módulos de Carga
+## Console v1.0 - Módulos de Carga
 
 ### `carga_base_principal.py`
 
@@ -125,7 +237,7 @@ tipos_esperados = {
 
 ---
 
-## Módulos de Procesamiento
+## Console v1.0 - Módulos de Procesamiento
 
 ### `crea_tabla_ultimos_periodos.py`
 
@@ -295,7 +407,28 @@ Formatea números con separadores de miles para mejor legibilidad.
 
 ## Flujos de Datos
 
-### Flujo de Procesamiento Completo (3 Fases)
+### Flujo de Procesamiento Completo (Sistema Dual)
+
+#### **Opción A: Web UI v2.0 + Console v1.0 (Híbrido)**
+```
+WEB UI: Gestión de Master Data
+app/routes/companies.py → datos_companias (CRUD completo)
+                        ↓
+CONSOLE: Procesamiento de Datos (3 Fases)
+FASE 1: Archivo MDB → carga_base_principal.py → datos_balance
+                   ↓
+       datos_balance → crea_tabla_ultimos_periodos.py → base_balance_ultimos_periodos
+                   ↓
+       base_balance_ultimos_periodos → crea_tabla_otros_conceptos.py → base_otros_conceptos
+                   ↓
+       base_subramos → crea_tabla_subramos_corregida.py → base_subramos_corregida_actual
+                   ↓
+FASE 2: generate_all_reports.py → CSV Reports (ending_files/{period}/)
+                   ↓
+FASE 3: excel_generators/*.py → Excel Reports (excel_final_files/{period}/)
+```
+
+#### **Opción B: Solo Console v1.0 (Tradicional)**
 ```
 FASE 1: PROCESAMIENTO DE DATOS (modules/)
 Archivo MDB → carga_base_principal.py → datos_balance

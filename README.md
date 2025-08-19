@@ -2,6 +2,10 @@
 
 Sistema automatizado para la generación de reportes del sector asegurador.
 
+**🆕 Ahora disponible en dos versiones:**
+- **Console v1.0**: Herramientas completas de línea de comandos (existente)
+- **Web UI v2.0**: Interfaz web moderna para gestión de compañías (nuevo)
+
 ## Instalación
 
 Para ejecutar este proyecto, asegúrate de tener Python 3.11 instalado en tu sistema. Puedes descargarlo desde [python.org](https://www.python.org/downloads/).
@@ -28,8 +32,25 @@ pip install -e .
 
 ## Estructura del Proyecto
 ```
+├── app/                          # 🆕 WEB UI v2.0: Interfaz web Flask
+│   ├── __init__.py
+│   ├── app.py                    # Aplicación Flask principal
+│   ├── routes/                   # Rutas web
+│   │   ├── companies.py          # Gestión de compañías
+│   │   └── ...                   # (Próximas rutas)
+│   ├── templates/                # Plantillas HTML
+│   │   ├── base.html             # Plantilla base con Bootstrap
+│   │   ├── dashboard.html        # Dashboard principal
+│   │   └── companies/            # Gestión de compañías
+│   ├── static/                   # CSS, JS, archivos estáticos
+│   │   ├── css/custom.css
+│   │   └── js/main.js
+│   └── forms/                    # Formularios Flask-WTF
+│       └── company_forms.py
+│
 ├── docs/                          # Documentación
-│   └── MODULES.md                 # Documentación técnica detallada
+│   ├── MODULES.md                 # Documentación técnica detallada
+│   └── WEB_UI_PLAN.md             # Plan y estado del Web UI
 │
 ├── ending_files/                  # FASE 2: Archivos CSV finales por período
 │   ├── 202404/
@@ -72,9 +93,9 @@ pip install -e .
 │   ├── other_functions.py       # Funciones auxiliares
 │   └── report_generator.py      # Generador de reportes
 │
-├── .env                         # Variables de entorno (DATABASE=...)
-├── environment.yml              # Configuración entorno Conda
-├── USAGE.md                     # Guía de uso práctica
+├── .env                         # Variables de entorno (DATABASE=... + WEB UI config)
+├── environment.yml              # Configuración entorno Conda (incluye Flask)
+├── USAGE.md                     # Guía de uso práctica (Console + Web UI)
 └── setup.py                     # Configuración del paquete
 ```
 
@@ -84,12 +105,36 @@ pip install -e .
 ```bash
 # 1. Configurar variables de entorno
 echo "DATABASE=/ruta/a/tu/base_datos.db" > .env
+echo "FLASK_SECRET_KEY=tu-clave-secreta" >> .env
+echo "FLASK_PORT=5000" >> .env
+echo "FLASK_DEBUG=True" >> .env
 
 # 2. Colocar archivos en mdb_files_to_load/
 # Formato: YYYY-P.zip (ej: 2025-1.zip)
 ```
 
-### Workflow Completo (3 Fases)
+## 🚀 Opciones de Uso
+
+### **Opción A: Web UI v2.0 (Recomendado para gestión de compañías)**
+```bash
+# Iniciar interfaz web
+python app/app.py
+
+# Abrir navegador en:
+http://127.0.0.1:5000
+```
+
+**Funcionalidades disponibles:**
+- ✅ **Dashboard del sistema** con estadísticas generales
+- ✅ **Gestión completa de compañías** (CRUD)
+  - Agregar nuevas compañías
+  - Editar compañías existentes  
+  - Eliminar compañías
+  - Búsqueda y filtrado
+- ✅ **Validación de datos** en tiempo real
+- ✅ **Interfaz moderna** con Bootstrap
+
+### **Opción B: Console v1.0 (Workflow completo de procesamiento)**
 
 #### **Fase 1: Procesamiento de Datos**
 ```bash
@@ -138,21 +183,31 @@ Todos los módulos usan períodos en formato **YYYYPP**:
 ## Estado del Proyecto
 
 ### ✅ Completado
-- **Fase 1:** Sistema de carga y procesamiento de datos desde archivos MDB
-- **Fase 2:** Generación automática de reportes CSV configurables 
-- **Fase 3:** Generadores de reportes Excel formateados y profesionales
-- Validación y verificación de compañías con comparaciones
-- Pipeline completo desde datos raw hasta reportes finales
-- Documentación completa de las 3 fases
-- Manejo consistente de períodos (YYYYPP)
-- Testing de cálculos antes de producción
+- **Console v1.0 (Sistema completo)**
+  - **Fase 1:** Sistema de carga y procesamiento de datos desde archivos MDB
+  - **Fase 2:** Generación automática de reportes CSV configurables 
+  - **Fase 3:** Generadores de reportes Excel formateados y profesionales
+  - Validación y verificación de compañías con comparaciones
+  - Pipeline completo desde datos raw hasta reportes finales
+  - Manejo consistente de períodos (YYYYPP)
+  - Testing de cálculos antes de producción
 
-### 🔄 En Desarrollo
-- Dashboard de visualización de datos
+- **Web UI v2.0 (Interfaz moderna)**
+  - ✅ **Dashboard del sistema** con estadísticas en tiempo real
+  - ✅ **Gestión completa de compañías** (CRUD con validación)
+  - ✅ **Interfaz responsive** con Bootstrap 5
+  - ✅ **Búsqueda y filtrado** de compañías
+  - ✅ **Integración completa** con base de datos existente
+  - ✅ **Compatibilidad total** con sistema console v1.0
+
+### 🔄 En Desarrollo (Web UI v2.0 - Próximas fases)
+- **Fase 2:** Gestión de períodos y carga de archivos MDB
+- **Fase 3:** Generación de reportes desde interfaz web
+- Dashboard avanzado con visualizaciones
 - API REST para acceso a reportes
-- Automatización completa del pipeline
 
 ### 📋 Pendiente
-- Incluir nombres completos de ramos, subramos y compañías
+- Implementación de nombres históricos de compañías (snapshots por período)
 - Ampliar conceptos de reportes (primas cedidas, etc.)
 - Implementar tests automatizados
+- Incluir nombres completos de ramos, subramos y compañías

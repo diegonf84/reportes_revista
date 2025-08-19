@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Nueva Compañía - Sistema de Reportes{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('companies.list_companies') }}">Compañías</a></li>
+                <li class="breadcrumb-item active">Nueva Compañía</li>
+            </ol>
+        </nav>
+        
+        <h1 class="h2 mb-4">
+            <i class="bi bi-plus-circle"></i> Nueva Compañía
+        </h1>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-building"></i> Información de la Compañía
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" novalidate>
+                    {{ form.hidden_tag() }}
+                    
+                    <!-- Código de Compañía -->
+                    <div class="mb-3">
+                        {{ form.cod_cia.label(class="form-label") }}
+                        {{ form.cod_cia(class="form-control" + (" is-invalid" if form.cod_cia.errors else "")) }}
+                        {% if form.cod_cia.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.cod_cia.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="form-text">Número único de identificación de la compañía (1-9999)</div>
+                    </div>
+                    
+                    <!-- Nombre Corto -->
+                    <div class="mb-3">
+                        {{ form.nombre_corto.label(class="form-label") }}
+                        {{ form.nombre_corto(class="form-control" + (" is-invalid" if form.nombre_corto.errors else "")) }}
+                        {% if form.nombre_corto.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.nombre_corto.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="form-text">Nombre abreviado o corto de la compañía</div>
+                    </div>
+                    
+                    <!-- Tipo de Compañía -->
+                    <div class="mb-3">
+                        {{ form.tipo_cia.label(class="form-label") }}
+                        {{ form.tipo_cia(class="form-select" + (" is-invalid" if form.tipo_cia.errors else "")) }}
+                        {% if form.tipo_cia.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.tipo_cia.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="form-text">Seleccione el tipo de compañía aseguradora</div>
+                    </div>
+                    
+                    <!-- Información sobre tipos -->
+                    <div class="alert alert-light">
+                        <h6><i class="bi bi-info-circle"></i> Tipos de Compañía</h6>
+                        <div class="row small">
+                            <div class="col-md-6">
+                                <ul class="mb-0">
+                                    <li><strong>Generales:</strong> Seguros generales</li>
+                                    <li><strong>Vida:</strong> Seguros de vida</li>
+                                    <li><strong>Retiro:</strong> Fondos de retiro</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <ul class="mb-0">
+                                    <li><strong>ART:</strong> Riesgos del trabajo</li>
+                                    <li><strong>M.T.P.P.:</strong> Mutuales transporte</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Botones -->
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('companies.list_companies') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Cancelar
+                        </a>
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Additional Information -->
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6><i class="bi bi-lightbulb"></i> Información Importante</h6>
+                <ul class="mb-0">
+                    <li>El código de compañía debe ser único en el sistema</li>
+                    <li>La fecha de registro se asignará automáticamente</li>
+                    <li>Todos los campos son obligatorios</li>
+                    <li>Puede importar múltiples compañías desde un archivo CSV</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add form validation
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        if (!AppUtils.validateRequired(form)) {
+            e.preventDefault();
+        }
+    });
+    
+    // Auto-focus first field
+    const firstInput = document.querySelector('input[type="number"]');
+    if (firstInput) {
+        firstInput.focus();
+    }
+});
+</script>
+{% endblock %}

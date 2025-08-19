@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Sistema de Reportes{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="h2 mb-4">
+            <i class="bi bi-speedometer2"></i> Dashboard del Sistema
+        </h1>
+    </div>
+</div>
+
+<!-- System Status Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ stats.total_periods or 0 }}</h4>
+                        <p class="card-text">Períodos Disponibles</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-calendar-date fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ stats.latest_period or 'N/A' }}</h4>
+                        <p class="card-text">Período Más Reciente</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-clock-history fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-{{ 'success' if stats.database_connected else 'danger' }} text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ '✓' if stats.database_connected else '✗' }}</h4>
+                        <p class="card-text">Base de Datos</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-database fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">v2.0</h4>
+                        <p class="card-text">Versión del Sistema</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-gear fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-lightning-charge"></i> Acciones Rápidas</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <div class="d-grid">
+                            <a href="{{ url_for('companies.list_companies') }}" class="btn btn-outline-primary btn-lg">
+                                <i class="bi bi-building"></i><br>
+                                Gestionar Compañías
+                            </a>
+                        </div>
+                        <small class="text-muted">Ver, agregar, editar y eliminar compañías</small>
+                    </div>
+                    
+                    <div class="col-md-4 mb-3">
+                        <div class="d-grid">
+                            <button class="btn btn-outline-secondary btn-lg" onclick="alert('Próximamente en Fase 2')">
+                                <i class="bi bi-upload"></i><br>
+                                Cargar Archivo MDB
+                            </button>
+                        </div>
+                        <small class="text-muted">Subir y procesar archivos de balance</small>
+                    </div>
+                    
+                    <div class="col-md-4 mb-3">
+                        <div class="d-grid">
+                            <button class="btn btn-outline-success btn-lg" onclick="alert('Próximamente en Fase 2')">
+                                <i class="bi bi-file-earmark-excel"></i><br>
+                                Generar Reportes
+                            </button>
+                        </div>
+                        <small class="text-muted">Crear reportes CSV y Excel</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Periods -->
+{% if periods %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-calendar-week"></i> Períodos Recientes</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Período</th>
+                                <th>Año</th>
+                                <th>Trimestre</th>
+                                <th>Nombre</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for period in periods %}
+                            {% set year = (period|string)[:4] %}
+                            {% set quarter = (period|string)[4:]|int %}
+                            {% set quarter_names = {1: 'Marzo', 2: 'Junio', 3: 'Septiembre', 4: 'Diciembre'} %}
+                            <tr>
+                                <td><span class="badge bg-primary">{{ period }}</span></td>
+                                <td>{{ year }}</td>
+                                <td>T{{ quarter }}</td>
+                                <td>{{ quarter_names[quarter] }} {{ year }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                {% if periods|length == 5 %}
+                <div class="text-center mt-3">
+                    <button class="btn btn-sm btn-outline-primary" onclick="alert('Próximamente: ver todos los períodos')">
+                        Ver todos los períodos...
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Console Access Notice -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <h6><i class="bi bi-info-circle"></i> Información del Sistema</h6>
+            <p class="mb-0">
+                Esta es la interfaz web <strong>v2.0</strong> del sistema. 
+                Todas las funcionalidades de consola <strong>v1.0</strong> siguen disponibles y funcionando normalmente.
+                <br>
+                <small class="text-muted">
+                    Para usar los scripts de consola: <code>python modules/[script].py</code>
+                </small>
+            </p>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

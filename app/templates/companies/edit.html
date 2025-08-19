@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Compañía {{ company.cod_cia }} - Sistema de Reportes{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('companies.list_companies') }}">Compañías</a></li>
+                <li class="breadcrumb-item active">Editar {{ company.cod_cia }}</li>
+            </ol>
+        </nav>
+        
+        <h1 class="h2 mb-4">
+            <i class="bi bi-pencil"></i> Editar Compañía {{ company.cod_cia }}
+        </h1>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-building"></i> {{ company.nombre_corto }}
+                </h5>
+                <small class="text-muted">
+                    Registrada: {% if company.fecha %}{{ company.fecha[:10] }}{% else %}Fecha no disponible{% endif %}
+                </small>
+            </div>
+            <div class="card-body">
+                <form method="POST" novalidate>
+                    {{ form.hidden_tag() }}
+                    
+                    <!-- Código de Compañía -->
+                    <div class="mb-3">
+                        {{ form.cod_cia.label(class="form-label") }}
+                        <div class="input-group">
+                            {{ form.cod_cia(class="form-control" + (" is-invalid" if form.cod_cia.errors else "")) }}
+                            <span class="input-group-text">
+                                <i class="bi bi-info-circle" data-bs-toggle="tooltip" 
+                                   title="Cambiar el código actualizará todas las referencias"></i>
+                            </span>
+                        </div>
+                        {% if form.cod_cia.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.cod_cia.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        {% if form.cod_cia.data != company.cod_cia %}
+                        <div class="form-text text-warning">
+                            <i class="bi bi-exclamation-triangle"></i> 
+                            Está cambiando el código de {{ company.cod_cia }} a {{ form.cod_cia.data }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Nombre Corto -->
+                    <div class="mb-3">
+                        {{ form.nombre_corto.label(class="form-label") }}
+                        {{ form.nombre_corto(class="form-control" + (" is-invalid" if form.nombre_corto.errors else "")) }}
+                        {% if form.nombre_corto.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.nombre_corto.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Tipo de Compañía -->
+                    <div class="mb-3">
+                        {{ form.tipo_cia.label(class="form-label") }}
+                        {{ form.tipo_cia(class="form-select" + (" is-invalid" if form.tipo_cia.errors else "")) }}
+                        {% if form.tipo_cia.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.tipo_cia.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        {% if form.tipo_cia.data != company.tipo_cia %}
+                        <div class="form-text text-info">
+                            <i class="bi bi-arrow-right"></i> 
+                            Cambiando de "{{ company.tipo_cia }}" a "{{ form.tipo_cia.data }}"
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Información sobre tipos -->
+                    <div class="alert alert-light">
+                        <h6><i class="bi bi-info-circle"></i> Tipos Disponibles</h6>
+                        <div class="row small">
+                            <div class="col-6">
+                                <span class="badge bg-success me-1">Generales</span>
+                                <span class="badge bg-info me-1">Vida</span>
+                                <span class="badge bg-warning text-dark">Retiro</span>
+                            </div>
+                            <div class="col-6">
+                                <span class="badge bg-danger me-1">ART</span>
+                                <span class="badge bg-secondary">M.T.P.P.</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Botones -->
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('companies.list_companies') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Cancelar
+                        </a>
+                        <div>
+                            <button type="button" class="btn btn-outline-danger me-2" 
+                                    onclick="deleteCompany({{ company.cod_cia }}, '{{ company.nombre_corto }}')">
+                                <i class="bi bi-trash"></i> Eliminar
+                            </button>
+                            {{ form.submit(class="btn btn-primary") }}
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Company Information -->
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6><i class="bi bi-info-circle"></i> Información de la Compañía</h6>
+                <div class="row">
+                    <div class="col-sm-6">
+                        <strong>Código Actual:</strong> {{ company.cod_cia }}
+                    </div>
+                    <div class="col-sm-6">
+                        <strong>Tipo Actual:</strong> 
+                        {% set badge_class = {
+                            'Generales': 'bg-success',
+                            'Vida': 'bg-info', 
+                            'Retiro': 'bg-warning text-dark',
+                            'ART': 'bg-danger',
+                            'M.T.P.P.': 'bg-secondary'
+                        } %}
+                        <span class="badge {{ badge_class.get(company.tipo_cia, 'bg-secondary') }}">
+                            {{ company.tipo_cia }}
+                        </span>
+                    </div>
+                    <div class="col-sm-6 mt-2">
+                        <strong>Registrada:</strong> 
+                        {% if company.fecha %}{{ company.fecha[:19] }}{% else %}No disponible{% endif %}
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <small class="text-muted">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>Importante:</strong> Los cambios en el código o tipo pueden afectar los reportes existentes.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Form (hidden) -->
+<form id="deleteForm" method="POST" style="display: none;">
+    <input type="hidden" name="_method" value="DELETE">
+</form>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function deleteCompany(codCia, nombreCorto) {
+    if (AppUtils.confirmDelete(`¿Está seguro de eliminar la compañía ${codCia} - ${nombreCorto}?\n\nEsta acción no se puede deshacer.`)) {
+        const form = document.getElementById('deleteForm');
+        form.action = `{{ url_for('companies.delete_company_route', cod_cia=0) }}`.replace('0', codCia);
+        form.submit();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Add form validation
+    const form = document.querySelector('form[method="POST"]');
+    form.addEventListener('submit', function(e) {
+        if (!AppUtils.validateRequired(form)) {
+            e.preventDefault();
+        }
+    });
+    
+    // Initialize tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Highlight changes
+    const codCiaInput = document.getElementById('cod_cia');
+    const tipoCiaSelect = document.getElementById('tipo_cia');
+    
+    if (codCiaInput) {
+        codCiaInput.addEventListener('change', function() {
+            const originalCode = {{ company.cod_cia }};
+            const newCode = parseInt(this.value);
+            
+            if (newCode !== originalCode && newCode) {
+                const warning = this.parentElement.parentElement.querySelector('.form-text');
+                if (!warning || !warning.classList.contains('text-warning')) {
+                    const warningDiv = document.createElement('div');
+                    warningDiv.className = 'form-text text-warning';
+                    warningDiv.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Está cambiando el código de ${originalCode} a ${newCode}`;
+                    this.parentElement.parentElement.appendChild(warningDiv);
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

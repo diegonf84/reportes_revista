@@ -1,6 +1,10 @@
-# Guía de Uso - Módulos
+# Guía de Uso - Sistema de Reportes
 
-Esta guía explica cómo usar cada módulo del sistema de reportes. Todos los módulos funcionan con **períodos** en formato `YYYYPP` donde:
+**🚀 Ahora disponible en dos versiones:**
+- **Console v1.0**: Herramientas completas de línea de comandos
+- **Web UI v2.0**: Interfaz web moderna para gestión de compañías
+
+Esta guía explica cómo usar ambas versiones del sistema. Todos los módulos funcionan con **períodos** en formato `YYYYPP` donde:
 - `YYYY` = Año (ej: 2025)
 - `PP` = Trimestre (01, 02, 03, 04)
 
@@ -15,7 +19,13 @@ Esta guía explica cómo usar cada módulo del sistema de reportes. Todos los m�
 ### Variables de Entorno (.env)
 Crear archivo `.env` con:
 ```bash
+# Base de datos (requerido para ambas versiones)
 DATABASE=/ruta/a/tu/base_datos.db
+
+# Variables Web UI v2.0 (solo si usas interfaz web)
+FLASK_SECRET_KEY=tu-clave-secreta-aqui
+FLASK_PORT=5000
+FLASK_DEBUG=True
 ```
 
 ### Preparación de Archivos
@@ -24,7 +34,68 @@ DATABASE=/ruta/a/tu/base_datos.db
 
 ---
 
-## Módulos Disponibles
+## 🌐 Web UI v2.0 - Interfaz Moderna
+
+### Inicio de la Aplicación Web
+```bash
+# Activar entorno
+conda activate revista_tr_cuadros
+
+# Iniciar servidor web
+python app/app.py
+
+# Abrir navegador en:
+http://127.0.0.1:5000
+```
+
+> **Nota:** Usar `127.0.0.1` en lugar de `localhost` para evitar problemas de resolución.
+
+### Funcionalidades Disponibles
+
+#### 📊 Dashboard Principal
+- **Estadísticas del sistema** en tiempo real
+- **Períodos disponibles** con información detallada
+- **Estado de la base de datos** y conectividad
+- **Navegación rápida** a todas las funcionalidades
+
+#### 🏢 Gestión de Compañías (CRUD Completo)
+
+**Agregar Nueva Compañía:**
+1. Click en "Compañías" → "Nueva Compañía"
+2. Completar formulario:
+   - **Código**: Número único (1-9999)
+   - **Nombre Corto**: Texto descriptivo
+   - **Tipo**: Seleccionar de lista (Generales, Vida, Retiro, ART, M.T.P.P.)
+3. Guardar - La fecha se asigna automáticamente
+
+**Editar Compañía Existente:**
+1. En lista de compañías, click botón "✏️" 
+2. Modificar campos necesarios
+3. Guardar cambios
+
+**Eliminar Compañía:**
+1. En lista de compañías, click botón "🗑️"
+2. Confirmar eliminación
+
+**Buscar y Filtrar:**
+- Usar caja de búsqueda para filtrar por código, nombre o tipo
+- Los resultados se actualizan en tiempo real
+
+#### 🔍 Características de la Interface
+- ✅ **Responsive**: Funciona en desktop y móvil
+- ✅ **Validación en tiempo real**: Errores mostrados inmediatamente
+- ✅ **Búsqueda instantánea**: Filtra tabla sin recargar página
+- ✅ **Badges de colores**: Tipos de compañía con códigos de color
+- ✅ **Confirmaciones**: Previene eliminaciones accidentales
+
+### Integración con Console v1.0
+- **Compatibilidad total**: Los cambios en web se reflejan inmediatamente en console
+- **Base de datos compartida**: Ambas versiones usan la misma SQLite
+- **Sin conflictos**: Puedes usar ambas versiones simultáneamente
+
+---
+
+## 💻 Console v1.0 - Módulos de Línea de Comandos
 
 ### 1. **Verificación de Datos**
 
@@ -162,7 +233,22 @@ python modules/crea_tabla_subramos_corregida.py 202502 --test
 
 ---
 
-## Generación de Reportes CSV
+## 🔄 Workflow Combinado: Web UI + Console
+
+### Flujo Recomendado
+1. **Gestión de Compañías** → Usar **Web UI v2.0** para agregar/editar compañías
+2. **Procesamiento de Datos** → Usar **Console v1.0** para carga y análisis
+3. **Generación de Reportes** → Usar **Console v1.0** para CSV/Excel
+
+### Ventajas del Enfoque Híbrido
+- ✅ **Web UI**: Fácil gestión de master data (compañías)
+- ✅ **Console**: Potente procesamiento masivo de datos
+- ✅ **Sincronización**: Cambios inmediatos entre ambas versiones
+- ✅ **Flexibilidad**: Usar la herramienta correcta para cada tarea
+
+---
+
+## 📊 Generación de Reportes CSV (Console v1.0)
 
 Después de procesar los datos con los módulos, el siguiente paso es generar los reportes en formato CSV.
 
