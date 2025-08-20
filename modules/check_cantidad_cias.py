@@ -83,30 +83,30 @@ def compare_companies(companies_file: set, companies_db: set, names_file: dict, 
     missing_companies = companies_db - companies_file
     new_companies = companies_file - companies_db
     
-    print("\n" + "="*60)
-    print(f"COMPARACIÓN DE COMPAÑÍAS")
-    print(f"Archivo (período {periodo_archivo}): {len(companies_file)} compañías")
-    print(f"Base de datos (período {periodo_anterior}): {len(companies_db)} compañías")
-    print("="*60)
+    logging.info("=" * 60)
+    logging.info("COMPARACIÓN DE COMPAÑÍAS")
+    logging.info(f"Archivo (período {periodo_archivo}): {len(companies_file)} compañías")
+    logging.info(f"Base de datos (período {periodo_anterior}): {len(companies_db)} compañías")
+    logging.info("=" * 60)
     
     if missing_companies:
-        print(f"\n⚠️  COMPAÑÍAS FALTANTES EN ARCHIVO ({len(missing_companies)}):")
+        logging.warning(f"⚠️  COMPAÑÍAS FALTANTES EN ARCHIVO ({len(missing_companies)}):")
         for company in sorted(missing_companies):
             name = names_db.get(company, "Sin nombre")
-            print(f"  - {company}: {name}")
-        print(f"\n❌ ATENCIÓN: Faltan {len(missing_companies)} compañías del período anterior")
-        print("   Revisa el archivo antes de proceder con la carga.")
+            logging.warning(f"  - {company}: {name}")
+        logging.error(f"❌ ATENCIÓN: Faltan {len(missing_companies)} compañías del período anterior")
+        logging.error("   Revisa el archivo antes de proceder con la carga.")
     else:
-        print("\n✅ Todas las compañías del período anterior están presentes")
+        logging.info("✅ Todas las compañías del período anterior están presentes")
     
     if new_companies:
-        print(f"\n📋 COMPAÑÍAS NUEVAS EN ARCHIVO ({len(new_companies)}):")
+        logging.info(f"📋 COMPAÑÍAS NUEVAS EN ARCHIVO ({len(new_companies)}):")
         for company in sorted(new_companies):
             name = names_file.get(company, "Sin nombre")
-            print(f"  - {company}: {name}")
+            logging.info(f"  - {company}: {name}")
     
     if not missing_companies and not new_companies:
-        print("\n✅ Las compañías coinciden exactamente entre períodos")
+        logging.info("✅ Las compañías coinciden exactamente entre períodos")
 
 def check_companies_count(periodo: int) -> None:
     """
@@ -116,7 +116,7 @@ def check_companies_count(periodo: int) -> None:
         periodo (int): Período en formato YYYYPP (ej: 202503)
     """
     companies_file, _ = get_companies_from_file(periodo)
-    print(f"El período {periodo} tiene {len(companies_file):,} compañías en la tabla Balance.")
+    logging.info(f"El período {periodo} tiene {len(companies_file):,} compañías en la tabla Balance.")
 
 def main(periodo_archivo: int, periodo_anterior: int = None) -> None:
     """
@@ -131,7 +131,7 @@ def main(periodo_archivo: int, periodo_anterior: int = None) -> None:
             # Solo verificar cantidad de compañías
             check_companies_count(periodo_archivo)
         else:
-            # Comparar con período anterior
+            # Comparar con período anterior en base de datos
             companies_file, names_file = get_companies_from_file(periodo_archivo)
             companies_db, names_db = get_companies_from_db(periodo_anterior)
             

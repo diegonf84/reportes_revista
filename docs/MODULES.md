@@ -78,9 +78,46 @@ python app/app.py
 - Transacciones seguras con context managers
 - Manejo de errores de base de datos
 
+---
+
+### `app/routes/data_processing.py`
+
+**Descripción:** Blueprint para procesamiento completo de datos (verificación, carga, tablas).
+
+**Rutas web implementadas:**
+- `GET /data-verification` - Página de verificación de datos
+- `GET /data-loading` - Página de carga de datos
+- `GET /table-processing` - Página de procesamiento de tablas
+
+**API endpoints implementados:**
+- `POST /api/check-file-status` - Verificar estado de archivos MDB y períodos en BD
+- `POST /api/check-companies` - Verificar y comparar compañías entre períodos
+- `POST /api/check-periods` - Listar períodos disponibles
+- `POST /api/upload-mdb` - Upload de archivos MDB (formato ZIP)
+- `POST /api/load-data` - Cargar datos desde MDB hacia base de datos
+- `POST /api/create-recent-periods` - Crear tabla de períodos recientes
+- `POST /api/create-concepts` - Crear tabla de conceptos financieros
+- `POST /api/create-subramos` - Crear tabla de subramos corregida
+
+**Características técnicas:**
+- **LogCapture class**: Captura logs de módulos console para mostrar en web
+- **Manejo inteligente de errores**: Diferencia períodos existentes vs nuevos
+- **Validación de uploads**: Formato ZIP con nomenclatura YYYY-P.zip
+- **Integración directa**: Llama funciones de módulos console existentes
+- **Responses JSON**: APIs RESTful con logs y mensajes contextuales
+
+**Clase LogCapture:**
+```python
+class LogCapture:
+    """Captura logs de módulos console para mostrar en interfaz web."""
+    def start_capture(self): # Inicia captura
+    def get_logs(self): # Obtiene logs capturados  
+    def stop_capture(self): # Detiene captura
+```
+
 ### `app/forms/company_forms.py`
 
-**Descripción:** Formularios Flask-WTF para validación client/server-side.
+**Descripción:** Formularios Flask-WTF para validación client/server-side de compañías.
 
 **Formularios definidos:**
 - `CompanyForm`: Agregar/editar compañías
@@ -93,6 +130,38 @@ python app/app.py
 - `NumberRange`: Código entre 1-9999
 - `Length`: Límites de caracteres
 
+---
+
+### `app/forms/processing_forms.py`
+
+**Descripción:** Formularios Flask-WTF para procesamiento de datos y validación de períodos.
+
+**Formularios definidos:**
+- `CheckCompaniesForm`: Verificar compañías entre períodos
+  - `periodo_archivo`: IntegerField con validación YYYYPP
+  - `periodo_anterior`: IntegerField opcional para comparación
+- `LoadDataForm`: Cargar datos desde archivos MDB
+  - `periodo`: IntegerField con validación YYYYPP
+- `CreateRecentPeriodsForm`: Crear tabla de períodos recientes
+  - `periodo_inicial`: IntegerField opcional con validación YYYYPP
+- `CreateFinancialConceptsForm`: Crear tabla de conceptos financieros
+- `CreateSubramosForm`: Crear tabla de subramos corregida
+  - `periodo`: IntegerField con validación YYYYPP
+  - `testing_mode`: BooleanField para modo testing
+- `CheckPeriodsForm`: Listar períodos disponibles
+- `UploadMDBForm`: Upload de archivos MDB
+  - `mdb_file`: FileField con validación ZIP
+
+**Validador personalizado:**
+```python
+def validate_period_format(form, field):
+    """Valida formato YYYYPP donde PP debe ser 01-04."""
+    period_str = str(field.data)
+    year = int(period_str[:4])
+    quarter = int(period_str[4:])
+    # Validaciones de rango y formato
+```
+
 ### `app/templates/`
 
 **Estructura de plantillas:**
@@ -101,6 +170,9 @@ python app/app.py
 - `companies/list.html`: Lista de compañías con búsqueda
 - `companies/add.html`: Formulario nueva compañía
 - `companies/edit.html`: Formulario editar compañía
+- `data_processing/verification.html`: Verificación de datos con upload MDB
+- `data_processing/loading.html`: Carga de datos con manejo de errores
+- `data_processing/table_creation.html`: Procesamiento de tablas (3 pasos)
 
 **Características de UI:**
 - Responsive design con Bootstrap 5
@@ -108,6 +180,10 @@ python app/app.py
 - Validación visual de formularios
 - Badges de colores por tipo de compañía
 - Confirmaciones de eliminación
+- **Upload de archivos**: Drag & drop con validación
+- **Logs en tiempo real**: Visualización de progreso de operaciones
+- **Manejo contextual de errores**: Mensajes específicos por acción
+- **Workflow guiado**: 3 pasos ordenados para procesamiento de tablas
 
 ### `app/static/`
 
@@ -409,7 +485,29 @@ Formatea números con separadores de miles para mejor legibilidad.
 
 ### Flujo de Procesamiento Completo (Sistema Dual)
 
-#### **Opción A: Web UI v2.0 + Console v1.0 (Híbrido)**
+#### **Opción A: Solo Web UI v2.0 (Nuevo workflow recomendado)**
+```
+WEB UI: Sistema Completo de Procesamiento
+app/routes/companies.py → datos_companias (CRUD completo)
+                        ↓
+app/routes/data_processing.py:
+  /api/upload-mdb → Upload archivos MDB
+  /api/check-companies → Verificación de compañías  
+  /api/load-data → carga_base_principal.py → datos_balance
+                        ↓
+  /api/create-recent-periods → crea_tabla_ultimos_periodos.py → base_balance_ultimos_periodos
+                        ↓
+  /api/create-concepts → crea_tabla_otros_conceptos.py → base_otros_conceptos
+                        ↓
+  /api/create-subramos → crea_tabla_subramos_corregida.py → base_subramos_corregida_actual
+                        ↓
+CONSOLE: Solo para Reportes (próximamente en Web)
+FASE 2: generate_all_reports.py → CSV Reports (ending_files/{period}/)
+                   ↓
+FASE 3: excel_generators/*.py → Excel Reports (excel_final_files/{period}/)
+```
+
+#### **Opción B: Web UI v2.0 + Console v1.0 (Híbrido)**
 ```
 WEB UI: Gestión de Master Data
 app/routes/companies.py → datos_companias (CRUD completo)
@@ -428,7 +526,7 @@ FASE 2: generate_all_reports.py → CSV Reports (ending_files/{period}/)
 FASE 3: excel_generators/*.py → Excel Reports (excel_final_files/{period}/)
 ```
 
-#### **Opción B: Solo Console v1.0 (Tradicional)**
+#### **Opción C: Solo Console v1.0 (Tradicional)**
 ```
 FASE 1: PROCESAMIENTO DE DATOS (modules/)
 Archivo MDB → carga_base_principal.py → datos_balance

@@ -81,12 +81,47 @@ http://127.0.0.1:5000
 - Usar caja de búsqueda para filtrar por código, nombre o tipo
 - Los resultados se actualizan en tiempo real
 
+#### 📊 Procesamiento de Datos (3 Módulos Principales)
+
+**🔍 Verificación de Datos:**
+1. **Upload de archivos MDB**: Subir archivos ZIP con formato YYYY-P.zip
+2. **Verificar compañías**: Comparar cantidad y diferencias entre períodos
+   - Ingresar período del archivo (ej: 202501)
+   - Opcional: período anterior para comparación (ej: 202404)
+   - Ver reporte detallado de compañías nuevas, faltantes o coincidentes
+3. **Listar períodos**: Ver todos los períodos disponibles en la base de datos
+
+**📥 Carga de Datos:**
+1. **Cargar período nuevo**: Procesar archivo MDB hacia base de datos
+   - Ingresar período en formato YYYYPP
+   - El sistema detecta automáticamente si el período ya existe
+   - Ver resumen de registros cargados
+2. **Validaciones automáticas**:
+   - Verificación de formato de archivo
+   - Detección de períodos duplicados
+   - Validación de integridad de datos
+
+**🛠️ Procesamiento de Tablas (Workflow Ordenado):**
+1. **Períodos Recientes**: Crear tabla filtrada con períodos recientes
+   - Opcional: especificar período inicial
+   - Por defecto: últimos 2 años
+2. **Conceptos Financieros**: Generar tabla con conceptos agregados
+   - Procesa automáticamente el último período disponible
+   - Calcula conceptos como resultado técnico, patrimonio neto, etc.
+3. **Subramos Corregida**: Crear tabla con correcciones por trimestre
+   - Especificar período a procesar
+   - Opción de modo testing para verificar cálculos
+   - Aplicación de lógica específica según trimestre
+
 #### 🔍 Características de la Interface
 - ✅ **Responsive**: Funciona en desktop y móvil
 - ✅ **Validación en tiempo real**: Errores mostrados inmediatamente
 - ✅ **Búsqueda instantánea**: Filtra tabla sin recargar página
 - ✅ **Badges de colores**: Tipos de compañía con códigos de color
 - ✅ **Confirmaciones**: Previene eliminaciones accidentales
+- ✅ **Manejo inteligente de errores**: Diferencia entre períodos existentes vs nuevos
+- ✅ **Upload de archivos**: Drag & drop con validación de formato
+- ✅ **Logs en tiempo real**: Ver progreso de operaciones de carga y procesamiento
 
 ### Integración con Console v1.0
 - **Compatibilidad total**: Los cambios en web se reflejan inmediatamente en console
@@ -236,13 +271,31 @@ python modules/crea_tabla_subramos_corregida.py 202502 --test
 ## 🔄 Workflow Combinado: Web UI + Console
 
 ### Flujo Recomendado
+
+**🌐 Solo Web UI v2.0 (Nuevo workflow recomendado):**
+1. **Gestión de Compañías** → Usar Web UI para CRUD completo
+2. **Verificación de Datos** → Upload y validar archivos MDB en web
+3. **Carga de Datos** → Procesar archivos MDB desde web con logs en tiempo real
+4. **Procesamiento de Tablas** → Ejecutar 3 pasos del workflow desde web
+5. **Generación de Reportes** → Usar Console v1.0 para CSV/Excel (próximamente en web)
+
+**🔄 Híbrido Web + Console (Workflow tradicional):**
 1. **Gestión de Compañías** → Usar **Web UI v2.0** para agregar/editar compañías
 2. **Procesamiento de Datos** → Usar **Console v1.0** para carga y análisis
 3. **Generación de Reportes** → Usar **Console v1.0** para CSV/Excel
 
-### Ventajas del Enfoque Híbrido
+### Ventajas por Enfoque
+
+**Web UI v2.0 (Recomendado):**
+- ✅ **Interfaz intuitiva**: Workflow visual paso a paso  
+- ✅ **Manejo de errores**: Mensajes claros y contextuales
+- ✅ **Logs en tiempo real**: Ver progreso sin terminal
+- ✅ **Validaciones automáticas**: Upload seguro de archivos
+- ✅ **Todo integrado**: Desde compañías hasta tablas de análisis
+
+**Híbrido Web + Console:**
 - ✅ **Web UI**: Fácil gestión de master data (compañías)
-- ✅ **Console**: Potente procesamiento masivo de datos
+- ✅ **Console**: Potente procesamiento masivo de datos  
 - ✅ **Sincronización**: Cambios inmediatos entre ambas versiones
 - ✅ **Flexibilidad**: Usar la herramienta correcta para cada tarea
 

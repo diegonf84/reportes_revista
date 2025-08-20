@@ -1,0 +1,566 @@
+{% extends "base.html" %}
+
+{% block title %}Verificación de Datos - Sistema de Reportes{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Verificación de Datos</li>
+                </ol>
+            </nav>
+            <h2><i class="bi bi-search"></i> Verificación de Datos</h2>
+            <p class="text-muted">Herramientas para verificar la integridad y disponibilidad de datos.</p>
+        </div>
+    </div>
+
+    <!-- Alert Messages -->
+    <div id="alert-container"></div>
+
+    <div class="row">
+        <!-- Upload MDB File -->
+        <div class="col-md-12 mb-4">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-upload"></i> Subir Archivo MDB
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Sube archivos MDB (formato ZIP) al sistema para su posterior verificación y procesamiento.</p>
+                    
+                    <form id="upload-form" enctype="multipart/form-data">
+                        {{ upload_form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            {{ upload_form.mdb_file.label(class="form-label") }}
+                            {{ upload_form.mdb_file() }}
+                            <div class="form-text">
+                                <strong>Formato requerido:</strong> YYYY-P.zip (ej: 2025-1.zip, 2024-4.zip)<br>
+                                <small class="text-muted">El archivo debe estar comprimido en formato ZIP y seguir la nomenclatura correcta.</small>
+                            </div>
+                        </div>
+
+                        <div class="d-grid">
+                            {{ upload_form.submit(id="btn-upload") }}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Group 1: Check Available Periods -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-calendar-check"></i> Períodos Disponibles
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Lista todos los períodos disponibles en la base de datos con estadísticas detalladas.</p>
+                    
+                    <form id="check-periods-form">
+                        {{ check_periods_form.hidden_tag() }}
+                        <div class="d-grid">
+                            {{ check_periods_form.submit(id="btn-check-periods") }}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Group 2: Check Company Count -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-building-check"></i> Verificar Compañías
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Verifica la cantidad de compañías en archivos MDB y compara con períodos anteriores.</p>
+                    
+                    <form id="check-companies-form">
+                        {{ check_companies_form.hidden_tag() }}
+                        
+                        <!-- Período del Archivo -->
+                        <div class="mb-3">
+                            {{ check_companies_form.periodo_archivo.label(class="form-label") }}
+                            <div class="input-group">
+                                {{ check_companies_form.periodo_archivo() }}
+                                <button type="button" id="check-file-current" class="btn btn-outline-secondary btn-sm">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                            {% if check_companies_form.periodo_archivo.errors %}
+                                <div class="text-danger small">
+                                    {% for error in check_companies_form.periodo_archivo.errors %}
+                                        <div>{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">Formato: YYYYPP (ej: 202501 para Marzo 2025)</div>
+                            <div id="file-status-current" class="mt-1"></div>
+                        </div>
+
+                        <!-- Período Anterior (Opcional) -->
+                        <div class="mb-3">
+                            {{ check_companies_form.periodo_anterior.label(class="form-label") }}
+                            <div class="input-group">
+                                {{ check_companies_form.periodo_anterior() }}
+                                <button type="button" id="check-file-previous" class="btn btn-outline-secondary btn-sm">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                            {% if check_companies_form.periodo_anterior.errors %}
+                                <div class="text-danger small">
+                                    {% for error in check_companies_form.periodo_anterior.errors %}
+                                        <div>{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">Para comparar con período anterior (opcional)</div>
+                            <div id="file-status-previous" class="mt-1"></div>
+                        </div>
+
+                        <!-- File Status Summary -->
+                        <div id="file-summary" class="alert alert-info d-none">
+                            <h6><i class="bi bi-info-circle"></i> Estado de Verificación</h6>
+                            <div id="file-summary-content"></div>
+                        </div>
+
+                        <div class="d-grid">
+                            {{ check_companies_form.submit(id="btn-check-companies") }}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Section -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-terminal"></i> Resultados y Logs
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Progress Indicator -->
+                    <div id="progress-indicator" class="d-none mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="spinner-border spinner-border-sm me-2" role="status">
+                                <span class="visually-hidden">Procesando...</span>
+                            </div>
+                            <span id="progress-text">Procesando...</span>
+                        </div>
+                    </div>
+
+                    <!-- Results Display -->
+                    <div id="results-container">
+                        <div class="text-muted text-center py-4">
+                            <i class="bi bi-info-circle"></i>
+                            Los resultados aparecerán aquí después de ejecutar una verificación.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const progressIndicator = document.getElementById('progress-indicator');
+    const progressText = document.getElementById('progress-text');
+    const resultsContainer = document.getElementById('results-container');
+    const alertContainer = document.getElementById('alert-container');
+
+    function showProgress(message) {
+        progressText.textContent = message;
+        progressIndicator.classList.remove('d-none');
+    }
+
+    function hideProgress() {
+        progressIndicator.classList.add('d-none');
+    }
+
+    function showAlert(type, message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        alertContainer.appendChild(alertDiv);
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            if (alertDiv && alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+
+    function displayResults(data, operation) {
+        let html = `<div class="mb-3">
+            <h6><i class="bi bi-check-circle text-success"></i> ${operation} completado exitosamente</h6>
+        </div>`;
+
+        if (data.periods) {
+            html += `<div class="mb-3">
+                <h6>Períodos disponibles (${data.periods.length}):</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>Período</th>
+                                <th>Trimestre</th>
+                                <th>Año</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+            
+            data.periods.forEach(period => {
+                const periodStr = period.toString();
+                const year = periodStr.substring(0, 4);
+                const quarter = periodStr.substring(4);
+                const quarterNames = {
+                    '01': 'Marzo (T1)',
+                    '02': 'Junio (T2)', 
+                    '03': 'Septiembre (T3)',
+                    '04': 'Diciembre (T4)'
+                };
+                
+                html += `<tr>
+                    <td><code>${period}</code></td>
+                    <td>${quarterNames[quarter] || `T${quarter}`}</td>
+                    <td>${year}</td>
+                </tr>`;
+            });
+            
+            html += `</tbody></table></div></div>`;
+        }
+
+        if (data.logs && data.logs.length > 0) {
+            html += `<div class="mb-3">
+                <h6>Logs de ejecución:</h6>
+                <div class="bg-dark text-light p-3 rounded" style="font-family: 'Courier New', monospace; font-size: 0.9rem; max-height: 300px; overflow-y: auto;">`;
+            
+            data.logs.forEach(log => {
+                if (log.trim()) {
+                    html += `<div>${escapeHtml(log)}</div>`;
+                }
+            });
+            
+            html += `</div></div>`;
+        }
+
+        resultsContainer.innerHTML = html;
+    }
+
+    function displayError(error, logs = []) {
+        let html = `<div class="alert alert-danger">
+            <h6><i class="bi bi-exclamation-triangle"></i> Error</h6>
+            <p class="mb-0">${escapeHtml(error)}</p>
+        </div>`;
+
+        if (logs && logs.length > 0) {
+            html += `<div class="mt-3">
+                <h6>Logs de error:</h6>
+                <div class="bg-dark text-light p-3 rounded" style="font-family: 'Courier New', monospace; font-size: 0.9rem; max-height: 300px; overflow-y: auto;">`;
+            
+            logs.forEach(log => {
+                if (log.trim()) {
+                    html += `<div>${escapeHtml(log)}</div>`;
+                }
+            });
+            
+            html += `</div></div>`;
+        }
+
+        resultsContainer.innerHTML = html;
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Check Periods Form
+    document.getElementById('check-periods-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        showProgress('Obteniendo períodos disponibles...');
+        
+        fetch('/data-processing/api/check-periods', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({})
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideProgress();
+            if (data.success) {
+                displayResults(data, 'Consulta de períodos');
+                showAlert('success', data.message);
+            } else {
+                displayError(data.error, data.logs);
+                showAlert('danger', 'Error al obtener períodos');
+            }
+        })
+        .catch(error => {
+            hideProgress();
+            displayError('Error de conexión: ' + error.message);
+            showAlert('danger', 'Error de conexión');
+        });
+    });
+
+    // File Status Checking
+    function checkFileStatus(periodoArchivo, periodoAnterior = null) {
+        const requestData = {
+            periodo_archivo: periodoArchivo
+        };
+        
+        if (periodoAnterior) {
+            requestData.periodo_anterior = periodoAnterior;
+        }
+        
+        return fetch('/data-processing/api/check-file-status', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestData)
+        })
+        .then(response => response.json());
+    }
+
+    function updateFileStatus(periodo, statusElementId, statusData, isDatabase = false) {
+        const statusElement = document.getElementById(statusElementId);
+        
+        if (isDatabase) {
+            // Para períodos anteriores, mostrar estado en base de datos
+            if (statusData.exists_in_db) {
+                statusElement.innerHTML = `
+                    <div class="text-success small">
+                        <i class="bi bi-check-circle"></i> Período ${periodo} encontrado en base de datos
+                    </div>
+                `;
+            } else {
+                statusElement.innerHTML = `
+                    <div class="text-warning small">
+                        <i class="bi bi-exclamation-triangle"></i> Período ${periodo} no encontrado en base de datos
+                    </div>
+                `;
+            }
+        } else {
+            // Para archivos actuales, mostrar estado del archivo MDB
+            if (statusData.exists) {
+                statusElement.innerHTML = `
+                    <div class="text-success small">
+                        <i class="bi bi-check-circle"></i> Archivo MDB encontrado: <code>${statusData.filename}</code>
+                    </div>
+                `;
+            } else {
+                statusElement.innerHTML = `
+                    <div class="text-danger small">
+                        <i class="bi bi-x-circle"></i> Archivo MDB no encontrado para período ${periodo}
+                    </div>
+                `;
+            }
+        }
+    }
+
+    function updateVerificationSummary(fileStatus) {
+        const fileSummary = document.getElementById('file-summary');
+        const fileSummaryContent = document.getElementById('file-summary-content');
+        
+        if (fileStatus.periodo_anterior_db && fileStatus.periodo_anterior_db.periodo) {
+            let summaryHtml = '';
+            
+            if (fileStatus.can_compare) {
+                summaryHtml += '<div class="text-success mb-1"><i class="bi bi-check-circle"></i> ✅ Comparación disponible: Archivo MDB vs Base de Datos</div>';
+            } else {
+                if (!fileStatus.archivo_actual.exists) {
+                    summaryHtml += '<div class="text-danger mb-1"><i class="bi bi-x-circle"></i> ❌ Archivo MDB no encontrado</div>';
+                }
+                if (!fileStatus.periodo_anterior_db.exists_in_db) {
+                    summaryHtml += '<div class="text-warning mb-1"><i class="bi bi-exclamation-triangle"></i> ⚠️ Período anterior no está en la base de datos</div>';
+                }
+            }
+            
+            fileSummaryContent.innerHTML = summaryHtml;
+            fileSummary.classList.remove('d-none');
+        } else {
+            fileSummary.classList.add('d-none');
+        }
+    }
+
+    // File check buttons
+    document.getElementById('check-file-current').addEventListener('click', function() {
+        const periodo = document.getElementById('periodo_archivo').value;
+        if (!periodo) {
+            showAlert('warning', 'Ingresa un período primero');
+            return;
+        }
+        
+        checkFileStatus(parseInt(periodo))
+            .then(data => {
+                if (data.success) {
+                    updateFileStatus(periodo, 'file-status-current', data.file_status.archivo_actual);
+                }
+            })
+            .catch(error => {
+                showAlert('danger', 'Error verificando archivo');
+            });
+    });
+
+    document.getElementById('check-file-previous').addEventListener('click', function() {
+        const periodoArchivo = document.getElementById('periodo_archivo').value;
+        const periodoAnterior = document.getElementById('periodo_anterior').value;
+        
+        if (!periodoArchivo) {
+            showAlert('warning', 'Ingresa el período del archivo primero');
+            return;
+        }
+        
+        if (!periodoAnterior) {
+            showAlert('warning', 'Ingresa el período anterior primero');
+            return;
+        }
+        
+        checkFileStatus(parseInt(periodoArchivo), parseInt(periodoAnterior))
+            .then(data => {
+                if (data.success) {
+                    updateFileStatus(periodoAnterior, 'file-status-previous', data.file_status.periodo_anterior_db, true);
+                    updateVerificationSummary(data.file_status);
+                }
+            })
+            .catch(error => {
+                showAlert('danger', 'Error verificando archivos');
+            });
+    });
+
+    // Auto-check when both periods are entered
+    document.getElementById('periodo_anterior').addEventListener('blur', function() {
+        const periodoArchivo = document.getElementById('periodo_archivo').value;
+        const periodoAnterior = this.value;
+        
+        if (periodoArchivo && periodoAnterior) {
+            checkFileStatus(parseInt(periodoArchivo), parseInt(periodoAnterior))
+                .then(data => {
+                    if (data.success) {
+                        updateFileStatus(periodoArchivo, 'file-status-current', data.file_status.archivo_actual, false);
+                        updateFileStatus(periodoAnterior, 'file-status-previous', data.file_status.periodo_anterior_db, true);
+                        updateVerificationSummary(data.file_status);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error auto-checking files:', error);
+                });
+        }
+    });
+
+    // Check Companies Form
+    document.getElementById('check-companies-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const periodo_archivo = formData.get('periodo_archivo');
+        const periodo_anterior = formData.get('periodo_anterior');
+        
+        if (!periodo_archivo) {
+            showAlert('warning', 'El período del archivo es requerido');
+            return;
+        }
+        
+        showProgress('Verificando compañías...');
+        
+        const requestData = {
+            periodo_archivo: parseInt(periodo_archivo)
+        };
+        
+        if (periodo_anterior) {
+            requestData.periodo_anterior = parseInt(periodo_anterior);
+        }
+        
+        fetch('/data-processing/api/check-companies', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideProgress();
+            if (data.success) {
+                displayResults(data, 'Verificación de compañías');
+                showAlert('success', data.message);
+            } else {
+                displayError(data.error, data.logs);
+                showAlert('danger', 'Error al verificar compañías');
+            }
+        })
+        .catch(error => {
+            hideProgress();
+            displayError('Error de conexión: ' + error.message);
+            showAlert('danger', 'Error de conexión');
+        });
+    });
+
+    // Upload Form
+    document.getElementById('upload-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const fileInput = document.getElementById('mdb_file');
+        
+        if (!fileInput.files.length) {
+            showAlert('warning', 'Selecciona un archivo para subir');
+            return;
+        }
+        
+        showProgress('Subiendo archivo...');
+        
+        fetch('/data-processing/api/upload-mdb', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideProgress();
+            if (data.success) {
+                showAlert('success', data.message);
+                // Reset form
+                this.reset();
+                // Clear any file status displays
+                document.getElementById('file-status-current').innerHTML = '';
+                document.getElementById('file-status-previous').innerHTML = '';
+                document.getElementById('file-summary').classList.add('d-none');
+            } else {
+                showAlert('danger', data.error);
+            }
+        })
+        .catch(error => {
+            hideProgress();
+            showAlert('danger', 'Error de conexión al subir archivo');
+        });
+    });
+});
+</script>
+{% endblock %}

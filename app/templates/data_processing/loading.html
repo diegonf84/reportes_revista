@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}Carga de Datos - Sistema de Reportes{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Carga de Datos</li>
+                </ol>
+            </nav>
+            <h2><i class="bi bi-download"></i> Carga de Datos</h2>
+            <p class="text-muted">Cargar datos desde archivos MDB hacia la base de datos SQLite.</p>
+        </div>
+    </div>
+
+    <!-- Alert Messages -->
+    <div id="alert-container"></div>
+
+    <div class="row justify-content-center">
+        <!-- Data Loading Form -->
+        <div class="col-md-8 col-lg-6">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-database-fill-add"></i> Cargar Nuevo Período
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="bg-light border border-info rounded p-3 mb-3">
+                        <h6 class="text-info mb-2"><i class="bi bi-info-circle"></i> Información:</h6>
+                        <p class="mb-0">El archivo MDB debe estar en <code>mdb_files_to_load/</code> con formato <code>YYYY-P.zip</code></p>
+                    </div>
+                    
+                    <form id="load-data-form">
+                        {{ form.hidden_tag() }}
+                        
+                        <!-- Período -->
+                        <div class="mb-3">
+                            {{ form.periodo.label(class="form-label") }}
+                            {{ form.periodo() }}
+                            {% if form.periodo.errors %}
+                                <div class="text-danger small">
+                                    {% for error in form.periodo.errors %}
+                                        <div>{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                <strong>Formato:</strong> YYYYPP donde PP es el trimestre (01-04)<br>
+                                <strong>Ejemplos:</strong> 202501 (Marzo 2025), 202502 (Junio 2025)
+                            </div>
+                        </div>
+
+                        <div class="d-grid">
+                            {{ form.submit(id="btn-load-data") }}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Section -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-terminal"></i> Resultado
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Progress Indicator -->
+                    <div id="progress-indicator" class="d-none mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="spinner-border text-success me-2" role="status">
+                                <span class="visually-hidden">Cargando...</span>
+                            </div>
+                            <span id="progress-text">Cargando datos...</span>
+                        </div>
+                        <div class="progress mt-2">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" 
+                                 role="progressbar" style="width: 100%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Results Display -->
+                    <div id="results-container">
+                        <div class="text-muted text-center py-4">
+                            <i class="bi bi-info-circle"></i>
+                            El resultado de la carga aparecerá aquí.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const progressIndicator = document.getElementById('progress-indicator');
+    const progressText = document.getElementById('progress-text');
+    const resultsContainer = document.getElementById('results-container');
+    const alertContainer = document.getElementById('alert-container');
+    const loadButton = document.getElementById('btn-load-data');
+
+    function showProgress(message) {
+        progressText.textContent = message;
+        progressIndicator.classList.remove('d-none');
+        loadButton.disabled = true;
+    }
+
+    function hideProgress() {
+        progressIndicator.classList.add('d-none');
+        loadButton.disabled = false;
+    }
+
+    function showAlert(type, message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        alertContainer.appendChild(alertDiv);
+        
+        // Auto-dismiss after 10 seconds for all types
+        setTimeout(() => {
+            if (alertDiv && alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 10000);
+    }
+
+    function displayResults(data) {
+        let html = '';
+        
+        // Handle different action types
+        if (data.action_type === 'already_exists') {
+            html = `<div class="mb-3">
+                <h6><i class="bi bi-info-circle text-info"></i> ${escapeHtml(data.message)}</h6>
+                <p class="text-muted mb-0">No se realizaron cambios en la base de datos.</p>
+            </div>`;
+        } else {
+            // newly_loaded or default case
+            html = `<div class="mb-3">
+                <h6><i class="bi bi-check-circle text-success"></i> ${escapeHtml(data.message)}</h6>
+            </div>`;
+            
+            // Show only a brief summary of key logs for newly loaded data
+            if (data.logs && data.logs.length > 0) {
+                const keyLogs = data.logs.filter(log => 
+                    log.includes('compañías') || 
+                    log.includes('registros') || 
+                    log.includes('Insertadas') ||
+                    log.includes('filas')
+                );
+                
+                if (keyLogs.length > 0) {
+                    html += `<div class="mb-3">
+                        <h6>Resumen:</h6>
+                        <div class="bg-light p-3 rounded border">`;
+                    
+                    keyLogs.forEach(log => {
+                        if (log.trim()) {
+                            html += `<div class="text-dark">${escapeHtml(log)}</div>`;
+                        }
+                    });
+                    
+                    html += `</div></div>`;
+                }
+            }
+        }
+
+        resultsContainer.innerHTML = html;
+    }
+
+    function displayError(error, logs = []) {
+        let html = `<div class="alert alert-danger">
+            <h6><i class="bi bi-exclamation-triangle"></i> Error en la carga</h6>
+            <p class="mb-0">${escapeHtml(error)}</p>
+        </div>`;
+
+        resultsContainer.innerHTML = html;
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Load Data Form
+    document.getElementById('load-data-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const periodo = formData.get('periodo');
+        
+        if (!periodo) {
+            showAlert('warning', 'El período es requerido');
+            return;
+        }
+        
+        showProgress('Cargando datos del período ' + periodo + '...');
+        
+        fetch('/data-processing/api/load-data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                periodo: parseInt(periodo)
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideProgress();
+            if (data.success) {
+                data.periodo = periodo; // Add period to response for display
+                displayResults(data);
+                
+                // Different alert types based on action
+                if (data.action_type === 'already_exists') {
+                    showAlert('info', data.message);
+                } else {
+                    showAlert('success', data.message);
+                }
+                
+                // Reset form
+                this.reset();
+            } else {
+                displayError(data.error, data.logs);
+                showAlert('danger', 'Error durante la carga');
+            }
+        })
+        .catch(error => {
+            hideProgress();
+            displayError('Error de conexión: ' + error.message);
+            showAlert('danger', 'Error de conexión');
+        });
+    });
+});
+</script>
+{% endblock %}

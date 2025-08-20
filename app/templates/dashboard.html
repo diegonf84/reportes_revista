@@ -87,7 +87,7 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3 mb-3">
                         <div class="d-grid">
                             <a href="{{ url_for('companies.list_companies') }}" class="btn btn-outline-primary btn-lg">
                                 <i class="bi bi-building"></i><br>
@@ -97,24 +97,34 @@
                         <small class="text-muted">Ver, agregar, editar y eliminar compañías</small>
                     </div>
                     
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3 mb-3">
                         <div class="d-grid">
-                            <button class="btn btn-outline-secondary btn-lg" onclick="alert('Próximamente en Fase 2')">
-                                <i class="bi bi-upload"></i><br>
-                                Cargar Archivo MDB
-                            </button>
+                            <a href="{{ url_for('data_processing.data_verification') }}" class="btn btn-outline-info btn-lg">
+                                <i class="bi bi-search"></i><br>
+                                Verificar Datos
+                            </a>
                         </div>
-                        <small class="text-muted">Subir y procesar archivos de balance</small>
+                        <small class="text-muted">Verificar períodos y compañías</small>
                     </div>
                     
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3 mb-3">
                         <div class="d-grid">
-                            <button class="btn btn-outline-success btn-lg" onclick="alert('Próximamente en Fase 2')">
-                                <i class="bi bi-file-earmark-excel"></i><br>
-                                Generar Reportes
-                            </button>
+                            <a href="{{ url_for('data_processing.data_loading') }}" class="btn btn-outline-success btn-lg">
+                                <i class="bi bi-download"></i><br>
+                                Cargar Datos
+                            </a>
                         </div>
-                        <small class="text-muted">Crear reportes CSV y Excel</small>
+                        <small class="text-muted">Cargar archivos MDB a la base</small>
+                    </div>
+                    
+                    <div class="col-md-3 mb-3">
+                        <div class="d-grid">
+                            <a href="{{ url_for('data_processing.table_processing') }}" class="btn btn-outline-warning btn-lg">
+                                <i class="bi bi-table"></i><br>
+                                Procesar Tablas
+                            </a>
+                        </div>
+                        <small class="text-muted">Crear tablas para reportes</small>
                     </div>
                 </div>
             </div>
@@ -159,9 +169,9 @@
                 
                 {% if periods|length == 5 %}
                 <div class="text-center mt-3">
-                    <button class="btn btn-sm btn-outline-primary" onclick="alert('Próximamente: ver todos los períodos')">
+                    <a href="{{ url_for('data_processing.data_verification') }}" class="btn btn-sm btn-outline-primary">
                         Ver todos los períodos...
-                    </button>
+                    </a>
                 </div>
                 {% endif %}
             </div>

@@ -36,7 +36,10 @@ def create_app():
     
     # Import and register blueprints
     from routes.companies import companies_bp
+    from routes.data_processing import data_processing_bp
+    
     app.register_blueprint(companies_bp)
+    app.register_blueprint(data_processing_bp, url_prefix='/data-processing')
     
     @app.route('/')
     def dashboard():
