@@ -80,6 +80,21 @@ class CreateRecentPeriodsForm(FlaskForm):
     submit = SubmitField('Crear Tabla Períodos', render_kw={'class': 'btn btn-info'})
 
 
+class CreateBaseSubramosForm(FlaskForm):
+    """Formulario para crear tabla base de subramos."""
+    periodo_inicial = IntegerField(
+        'Período Inicial (Opcional)', 
+        validators=[Optional(), validate_period_format],
+        render_kw={
+            'placeholder': '202301',
+            'class': 'form-control',
+            'title': 'Período inicial desde el cual filtrar (opcional, por defecto últimos 2 años)'
+        }
+    )
+    
+    submit = SubmitField('Crear Tabla Base Subramos', render_kw={'class': 'btn btn-info'})
+
+
 class CreateFinancialConceptsForm(FlaskForm):
     """Formulario para crear tabla de conceptos financieros."""
     submit = SubmitField('Crear Tabla Conceptos', render_kw={'class': 'btn btn-info'})

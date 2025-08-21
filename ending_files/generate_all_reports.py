@@ -89,8 +89,12 @@ def generate_all_reports(
             logging.error(f"Error al generar reporte {report_name}: {e}")
 
 if __name__ == "__main__":
+    # Get absolute path to script directory for report_definitions.json
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    default_definitions_path = os.path.join(script_dir, 'report_definitions.json')
+    
     parser = argparse.ArgumentParser(description='Genera reportes del mercado asegurador')
-    parser.add_argument('--definitions', type=str, default='report_definitions.json',
+    parser.add_argument('--definitions', type=str, default=default_definitions_path,
                         help='Archivo JSON con definiciones de reportes')
     parser.add_argument('--output_dir', type=str, default='./',
                         help='Directorio base donde guardar los reportes')

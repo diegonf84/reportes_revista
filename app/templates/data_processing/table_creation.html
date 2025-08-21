@@ -28,6 +28,7 @@
                 <h6 class="text-info mb-2"><i class="bi bi-info-circle"></i> Orden de Procesamiento Recomendado:</h6>
                 <ol class="mb-0">
                     <li><strong>Períodos Recientes:</strong> Crear tabla filtrada con períodos recientes</li>
+                    <li><strong>Base Subramos:</strong> Crear tabla agregada por subramos</li>
                     <li><strong>Conceptos Financieros:</strong> Generar tabla con conceptos agregados</li>
                     <li><strong>Subramos Corregida:</strong> Crear tabla con correcciones por trimestre</li>
                 </ol>
@@ -35,9 +36,10 @@
         </div>
     </div>
 
+    <!-- Row 1: Preparatory Steps -->
     <div class="row">
         <!-- Create Recent Periods Table -->
-        <div class="col-md-4 mb-4">
+        <div class="col-md-6 mb-4">
             <div class="card h-100">
                 <div class="card-header bg-info text-white">
                     <h5 class="card-title mb-0">
@@ -71,8 +73,57 @@
             </div>
         </div>
 
+        <!-- Create Base Subramos Table -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-table"></i> Base Subramos
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Crea tabla agregada con datos de seguros por subramos utilizando mapeos de cuentas contables.</p>
+                    
+                    <div class="alert alert-light">
+                        <small>
+                            <strong>Métricas incluidas:</strong><br>
+                            • Primas emitidas y devengadas<br>
+                            • Siniestros devengados<br>
+                            • Gastos totales<br>
+                            • Primas cedidas<br>
+                            • Gastos de producción
+                        </small>
+                    </div>
+                    
+                    <form id="base-subramos-form">
+                        {{ base_subramos_form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            {{ base_subramos_form.periodo_inicial.label(class="form-label") }}
+                            {{ base_subramos_form.periodo_inicial() }}
+                            {% if base_subramos_form.periodo_inicial.errors %}
+                                <div class="text-danger small">
+                                    {% for error in base_subramos_form.periodo_inicial.errors %}
+                                        <div>{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">Si no se especifica, usa últimos 2 años</div>
+                        </div>
+
+                        <div class="d-grid">
+                            {{ base_subramos_form.submit() }}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 2: Analysis Steps -->
+    <div class="row">
         <!-- Create Financial Concepts Table -->
-        <div class="col-md-4 mb-4">
+        <div class="col-md-6 mb-4">
             <div class="card h-100">
                 <div class="card-header bg-info text-white">
                     <h5 class="card-title mb-0">
@@ -104,7 +155,7 @@
         </div>
 
         <!-- Create Subramos Table -->
-        <div class="col-md-4 mb-4">
+        <div class="col-md-6 mb-4">
             <div class="card h-100">
                 <div class="card-header bg-info text-white">
                     <h5 class="card-title mb-0">
@@ -193,7 +244,7 @@
                 </div>
                 <div class="card-body">
                     <div class="row">
-                        <div class="col-md-4">
+                        <div class="col-md-6 col-lg-3">
                             <h6>Tabla Períodos Recientes</h6>
                             <ul class="small">
                                 <li>Origen: <code>datos_balance</code></li>
@@ -201,7 +252,15 @@
                                 <li>Filtra por fecha especificada</li>
                             </ul>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6 col-lg-3">
+                            <h6>Tabla Base Subramos</h6>
+                            <ul class="small">
+                                <li>Origen: <code>base_balance_ultimos_periodos</code></li>
+                                <li>Destino: <code>base_subramos</code></li>
+                                <li>Agrega datos por subramos</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6 col-lg-3">
                             <h6>Tabla Conceptos</h6>
                             <ul class="small">
                                 <li>Origen: <code>base_balance_ultimos_periodos</code></li>
@@ -209,8 +268,8 @@
                                 <li>Agrega conceptos financieros</li>
                             </ul>
                         </div>
-                        <div class="col-md-4">
-                            <h6>Tabla Subramos</h6>
+                        <div class="col-md-6 col-lg-3">
+                            <h6>Tabla Subramos Corregida</h6>
                             <ul class="small">
                                 <li>Origen: <code>base_subramos</code></li>
                                 <li>Destino: <code>base_subramos_corregida_actual</code></li>
@@ -363,6 +422,21 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         makeRequest('/data-processing/api/create-recent-periods', requestData, 'Creación de tabla de períodos recientes');
+    });
+
+    // Base Subramos Form
+    document.getElementById('base-subramos-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const periodo_inicial = formData.get('periodo_inicial');
+        
+        const requestData = {};
+        if (periodo_inicial) {
+            requestData.periodo_inicial = parseInt(periodo_inicial);
+        }
+        
+        makeRequest('/data-processing/api/create-base-subramos', requestData, 'Creación de tabla base de subramos');
     });
 
     // Concepts Form

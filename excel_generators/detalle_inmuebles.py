@@ -5,9 +5,9 @@ import os
 import logging
 import argparse
 
-def create_excel_cuadro_nuevo(csv_path: str, output_path: str, period: str) -> None:
+def create_excel_detalle_inmuebles(csv_path: str, output_path: str, period: str) -> None:
     """
-    Genera archivo Excel formateado para el reporte 'cuadro_nuevo'.
+    Genera archivo Excel formateado para el reporte 'detalle_inmuebles'.
     
     Args:
         csv_path: Ruta al archivo CSV de entrada
@@ -21,7 +21,7 @@ def create_excel_cuadro_nuevo(csv_path: str, output_path: str, period: str) -> N
     # Crear workbook y worksheet
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = f"Cuadro Nuevo {period}"
+    ws.title = f"Detalle Inmuebles {period}"
     
     # Quitar las líneas de cuadrícula de la hoja
     ws.sheet_view.showGridLines = False
@@ -45,22 +45,15 @@ def create_excel_cuadro_nuevo(csv_path: str, output_path: str, period: str) -> N
     
     # Headers de columnas, comenzando en columna B
     headers = [
-        "ENTIDAD", "Producción", "Disponibilidades", "Inversiones", 
-        "Inmuebles", "Deudas Con Asegurados", "Stros a/c Reas", 
-        "Deudas Neto", "Patrimonio Neto"
+        "ENTIDAD", "Inmuebles Inversión", "Inmuebles Uso Propio", "Total Inmuebles"
     ]
     
     # Mapeo de columnas del CSV a headers del Excel
     column_mapping = {
         'nombre_corto': 'ENTIDAD',
-        'primas_emitidas': 'Producción',
-        'disponibilidades': 'Disponibilidades',
-        'inversiones': 'Inversiones',
-        'inmuebles': 'Inmuebles',
-        'deudas_total_aseg': 'Deudas Con Asegurados',
-        'deudas_con_asegurados_ac_reaseguros': 'Stros a/c Reas',
-        'deudas_neto': 'Deudas Neto',
-        'patrimonio_neto': 'Patrimonio Neto'
+        'inmuebles_inversion': 'Inmuebles Inversión',
+        'inmuebles_uso_propio': 'Inmuebles Uso Propio',
+        'inmuebles_total': 'Total Inmuebles'
     }
     
     # Columnas numéricas
@@ -89,8 +82,9 @@ def create_excel_cuadro_nuevo(csv_path: str, output_path: str, period: str) -> N
                 cell.alignment = center_alignment
         current_row += 1
         
-        # Datos de las compañías
-        for _, row_data in data_tipo.iterrows():
+        # Datos de las compañías, ordenados por inmuebles_total descendente
+        data_tipo_ordenado = data_tipo.sort_values('inmuebles_total', ascending=False)
+        for _, row_data in data_tipo_ordenado.iterrows():
             # Nombre de la entidad en columna B
             cell_entidad = ws.cell(row=current_row, column=2, value=row_data['nombre_corto'])
             cell_entidad.font = normal_font
@@ -123,17 +117,17 @@ def create_excel_cuadro_nuevo(csv_path: str, output_path: str, period: str) -> N
         current_row += 2  # Espacio entre tipos
     
     # Ajustar ancho de columnas
-    column_widths = [15, 33.5, 14.75, 14.75, 14.75, 14.75, 22.5, 14.75, 14.75, 14.75]
+    column_widths = [15, 33.5, 18, 18, 18]
     for col_idx, width in enumerate(column_widths, 1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = width
     
     # Guardar archivo
     wb.save(output_path)
-    logging.info(f"Excel generado en: {output_path}")
+    logging.info(f"Excel detalle inmuebles generado en: {output_path}")
 
-def generate_cuadro_nuevo_excel(period: str, csv_dir: str = None) -> str:
+def generate_detalle_inmuebles_excel(period: str, csv_dir: str = None) -> str:
     """
-    Función de conveniencia para generar el Excel del cuadro nuevo.
+    Función de conveniencia para generar el Excel del detalle de inmuebles.
     
     Args:
         period: Período (ej: "202501")
@@ -152,14 +146,14 @@ def generate_cuadro_nuevo_excel(period: str, csv_dir: str = None) -> str:
     period_dir = os.path.join(output_dir, period)
     os.makedirs(period_dir, exist_ok=True)
     
-    csv_path = os.path.join(csv_dir, f"{period}_cuadro_nuevo.csv")
-    output_path = os.path.join(period_dir, f"{period}_cuadro_nuevo.xlsx")
+    csv_path = os.path.join(csv_dir, f"{period}_detalle_inmuebles.csv")
+    output_path = os.path.join(period_dir, f"{period}_detalle_inmuebles.xlsx")
     
-    create_excel_cuadro_nuevo(csv_path, output_path, period)
+    create_excel_detalle_inmuebles(csv_path, output_path, period)
     return output_path
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Genera Excel formateado para cuadro nuevo')
+    parser = argparse.ArgumentParser(description='Genera Excel formateado para detalle de inmuebles')
     parser.add_argument('period', help='Período del reporte (ej: 202501)')
     parser.add_argument('--csv_dir', default=None, help='Directorio donde está el CSV')
     
@@ -168,7 +162,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     
     try:
-        excel_path = generate_cuadro_nuevo_excel(
+        excel_path = generate_detalle_inmuebles_excel(
             period=args.period,
             csv_dir=args.csv_dir
         )
@@ -177,6 +171,6 @@ if __name__ == "__main__":
         print(f"❌ Error: No se encontró el archivo CSV esperado")
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         expected_csv_path = f"{base_dir}/ending_files/{args.period}" if args.csv_dir is None else args.csv_dir
-        print(f"   Buscando CSV en: {expected_csv_path}/{args.period}_cuadro_nuevo.csv")
+        print(f"   Buscando CSV en: {expected_csv_path}/{args.period}_detalle_inmuebles.csv")
     except Exception as e:
         print(f"❌ Error inesperado: {e}")

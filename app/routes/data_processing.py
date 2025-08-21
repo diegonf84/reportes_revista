@@ -8,7 +8,7 @@ from werkzeug.utils import secure_filename
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
 from app.forms.processing_forms import (
     CheckCompaniesForm, LoadDataForm, CreateRecentPeriodsForm, 
-    CreateFinancialConceptsForm, CreateSubramosForm, CheckPeriodsForm, UploadMDBForm
+    CreateBaseSubramosForm, CreateFinancialConceptsForm, CreateSubramosForm, CheckPeriodsForm, UploadMDBForm
 )
 
 # Importar módulos existentes
@@ -23,6 +23,7 @@ from modules.check_cantidad_cias import main as check_companies_main
 from modules.check_ultimos_periodos import print_periods_info, list_available_periods as list_periods
 from modules.carga_base_principal import main as load_data_main
 from modules.crea_tabla_ultimos_periodos import create_recent_periods_table
+from modules.crea_tabla_subramos import main as create_base_subramos_main
 from modules.crea_tabla_otros_conceptos import main as create_concepts_main
 from modules.crea_tabla_subramos_corregida import create_table_from_query, export_testing_data
 from modules.file_utils import check_mdb_file_exists, list_available_mdb_files, get_file_status
@@ -90,11 +91,13 @@ def data_loading():
 def table_processing():
     """Página principal para procesamiento de tablas."""
     recent_periods_form = CreateRecentPeriodsForm()
+    base_subramos_form = CreateBaseSubramosForm()
     concepts_form = CreateFinancialConceptsForm()
     subramos_form = CreateSubramosForm()
     
     return render_template('data_processing/table_creation.html',
                          recent_periods_form=recent_periods_form,
+                         base_subramos_form=base_subramos_form,
                          concepts_form=concepts_form,
                          subramos_form=subramos_form)
 
@@ -383,6 +386,44 @@ def api_create_recent_periods():
                 'success': True,
                 'logs': logs,
                 'message': 'Tabla de períodos recientes creada exitosamente'
+            })
+            
+        except Exception as e:
+            log_capture.stop_capture()
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'logs': log_capture.get_logs()
+            }), 500
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error en la solicitud: {str(e)}'
+        }), 400
+
+
+@data_processing_bp.route('/api/create-base-subramos', methods=['POST'])
+def api_create_base_subramos():
+    """API endpoint para crear tabla base de subramos."""
+    try:
+        data = request.get_json()
+        periodo_inicial = data.get('periodo_inicial')
+        
+        log_capture = LogCapture()
+        log_capture.start_capture()
+        
+        try:
+            # Llamar función del módulo
+            create_base_subramos_main(periodo_inicial)
+            
+            logs = log_capture.get_logs()
+            log_capture.stop_capture()
+            
+            return jsonify({
+                'success': True,
+                'logs': logs,
+                'message': 'Tabla base de subramos creada exitosamente'
             })
             
         except Exception as e:

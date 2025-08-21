@@ -235,6 +235,22 @@
       "int_columns": ["total_primas_devengadas", "total_gs_prod", "total_sueldos", "total_gs", "gs_reaseguro"],
       "separator": ";",
       "decimal": ","
+    },
+
+    "detalle_inmuebles": {
+      "query": [
+        "select c.tipo_cia, c.nombre_corto,",
+        "       b.inmuebles_inversion,",
+        "       b.inmuebles_uso_propio,",
+        "       b.inmuebles_inversion + b.inmuebles_uso_propio as inmuebles_total",
+        "from base_otros_conceptos b",
+        "left join datos_companias c on b.cod_cia = c.cod_cia",
+        "where b.periodo = '{period}'",
+        "order by tipo_cia asc, inmuebles_total desc"
+      ],
+      "int_columns": ["inmuebles_inversion", "inmuebles_uso_propio", "inmuebles_total"],
+      "separator": ",",
+      "decimal": "."
     }
 
   }
