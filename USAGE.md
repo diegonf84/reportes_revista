@@ -113,6 +113,13 @@ http://127.0.0.1:5000
    - Opción de modo testing para verificar cálculos
    - Aplicación de lógica específica según trimestre
 
+#### 📊 Generación de Reportes (Proceso Unificado):
+1. **Generación Completa**: Un solo paso para crear todos los reportes
+   - Ingresar período en formato YYYYPP (ej: 202501)
+   - Generación automática de 9 tipos de reportes
+   - Tiempo estimado: 3-5 minutos
+2. **Archivos generados**: CSV en ending_files/, Excel en excel_final_files/
+
 #### 🔍 Características de la Interface
 - ✅ **Responsive**: Funciona en desktop y móvil
 - ✅ **Validación en tiempo real**: Errores mostrados inmediatamente
@@ -277,7 +284,7 @@ python modules/crea_tabla_subramos_corregida.py 202502 --test
 2. **Verificación de Datos** → Upload y validar archivos MDB en web
 3. **Carga de Datos** → Procesar archivos MDB desde web con logs en tiempo real
 4. **Procesamiento de Tablas** → Ejecutar 3 pasos del workflow desde web
-5. **Generación de Reportes** → Usar Console v1.0 para CSV/Excel (próximamente en web)
+5. **Generación de Reportes** → Proceso unificado desde web UI (CSV + Excel automático)
 
 **🔄 Híbrido Web + Console (Workflow tradicional):**
 1. **Gestión de Compañías** → Usar **Web UI v2.0** para agregar/editar compañías

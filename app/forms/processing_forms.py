@@ -143,3 +143,18 @@ class UploadMDBForm(FlaskForm):
     )
     
     submit = SubmitField('Subir Archivo', render_kw={'class': 'btn btn-success'})
+
+
+class ReportGenerationForm(FlaskForm):
+    """Formulario para generar todos los reportes CSV y Excel."""
+    periodo = IntegerField(
+        'Período del Reporte', 
+        validators=[DataRequired(), validate_period_format],
+        render_kw={
+            'placeholder': '202502',
+            'class': 'form-control',
+            'title': 'Período para generar todos los reportes (formato YYYYPP)'
+        }
+    )
+    
+    submit = SubmitField('Generar Todos los Reportes', render_kw={'class': 'btn btn-success btn-lg'})

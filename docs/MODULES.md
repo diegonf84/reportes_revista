@@ -98,6 +98,7 @@ python app/app.py
 - `POST /api/create-recent-periods` - Crear tabla de períodos recientes
 - `POST /api/create-concepts` - Crear tabla de conceptos financieros
 - `POST /api/create-subramos` - Crear tabla de subramos corregida
+- `POST /api/generate-all-reports` - Generación unificada de reportes (CSV + Excel)
 
 **Características técnicas:**
 - **LogCapture class**: Captura logs de módulos console para mostrar en web
@@ -151,6 +152,8 @@ class LogCapture:
 - `CheckPeriodsForm`: Listar períodos disponibles
 - `UploadMDBForm`: Upload de archivos MDB
   - `mdb_file`: FileField con validación ZIP
+- `ReportGenerationForm`: Generación unificada de reportes
+  - `periodo`: IntegerField con validación YYYYPP
 
 **Validador personalizado:**
 ```python

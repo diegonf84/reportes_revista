@@ -37,18 +37,18 @@ pip install -e .
 │   ├── app.py                    # Aplicación Flask principal
 │   ├── routes/                   # Rutas web
 │   │   ├── companies.py          # Gestión de compañías  
-│   │   └── data_processing.py    # Procesamiento de datos (verificación, carga, tablas)
+│   │   └── data_processing.py    # Procesamiento de datos (verificación, carga, tablas, reportes)
 │   ├── templates/                # Plantillas HTML
 │   │   ├── base.html             # Plantilla base con Bootstrap
 │   │   ├── dashboard.html        # Dashboard principal
 │   │   ├── companies/            # Gestión de compañías
-│   │   └── data_processing/      # Procesamiento de datos (verificación, carga, tablas)
+│   │   └── data_processing/      # Procesamiento de datos (verificación, carga, tablas, reportes)
 │   ├── static/                   # CSS, JS, archivos estáticos
 │   │   ├── css/custom.css
 │   │   └── js/main.js
 │   └── forms/                    # Formularios Flask-WTF
 │       ├── company_forms.py      # Formularios de compañías
-│       └── processing_forms.py   # Formularios de procesamiento de datos
+│       └── processing_forms.py   # Formularios de procesamiento de datos y reportes
 │
 ├── docs/                          # Documentación
 │   ├── MODULES.md                 # Documentación técnica detallada
@@ -140,6 +140,7 @@ http://127.0.0.1:5000
 - ✅ **Validación de datos** en tiempo real
 - ✅ **Interfaz moderna** con Bootstrap
 - ✅ **Manejo de errores** inteligente y mensajes informativos
+- ✅ **Generación completa de reportes** (CSV + Excel) en un solo proceso
 
 ### **Opción B: Console v1.0 (Workflow completo de procesamiento)**
 
@@ -206,16 +207,21 @@ Todos los módulos usan períodos en formato **YYYYPP**:
     - **Verificación de Datos**: Upload MDB, validar compañías, comparar períodos
     - **Carga de Datos**: Procesar archivos MDB, manejo inteligente de errores
     - **Procesamiento de Tablas**: Crear tablas de análisis con workflow guiado
+  - ✅ **Generación unificada de reportes** (CSV + Excel)
+    - **Un solo paso**: Ingreso de período y generación automática de todos los reportes
+    - **Progreso en tiempo real**: Seguimiento visual del proceso de generación
+    - **9 tipos de reportes**: Cuadro principal, ranking, apertura por subramo, etc.
+    - **Archivos organizados**: CSV en ending_files/, Excel en excel_final_files/
   - ✅ **Interfaz responsive** con Bootstrap 5
   - ✅ **Búsqueda y filtrado** de compañías
   - ✅ **Integración completa** con base de datos existente
   - ✅ **Compatibilidad total** con sistema console v1.0
 
 ### 🔄 En Desarrollo (Web UI v2.0 - Próximas fases)
-- **Generación de reportes** desde interfaz web (CSV + Excel)
 - **Dashboard avanzado** con visualizaciones y gráficos
 - **API REST** para acceso programático a reportes
 - **Gestión de archivos** con explorador web integrado
+- **Gestión de períodos** desde interfaz web
 
 ### 📋 Pendiente
 - Implementación de nombres históricos de compañías (snapshots por período)

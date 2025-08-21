@@ -1,0 +1,393 @@
+{% extends "base.html" %}
+
+{% block title %}Generación de Reportes - Sistema de Reportes{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Generación de Reportes</li>
+                </ol>
+            </nav>
+            <h2><i class="bi bi-file-earmark-spreadsheet"></i> Generación Completa de Reportes</h2>
+            <p class="text-muted">Genera todos los reportes CSV y Excel para un período específico en un solo proceso.</p>
+        </div>
+    </div>
+
+    <!-- Alert Messages -->
+    <div id="alert-container"></div>
+
+    <!-- Process Flow Info -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="bg-light border border-primary rounded p-3 mb-3">
+                <h6 class="text-primary mb-2"><i class="bi bi-info-circle"></i> Proceso Automatizado de Generación:</h6>
+                <ol class="mb-0">
+                    <li><strong>Generación de CSV:</strong> Crea todos los archivos CSV con datos del período</li>
+                    <li><strong>Generación de Excel:</strong> Convierte automáticamente todos los CSV a archivos Excel formateados</li>
+                    <li><strong>Validación:</strong> Verifica que todos los archivos se hayan generado correctamente</li>
+                    <li><strong>Resultado:</strong> Archivos listos en las carpetas correspondientes</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Generation Form -->
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white text-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-rocket"></i> Generación de Reportes Completos
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text text-center mb-4">
+                        Ingrese el período para generar automáticamente todos los reportes CSV y Excel correspondientes.
+                    </p>
+                    
+                    <div class="alert alert-info">
+                        <h6><i class="bi bi-lightbulb"></i> Reportes que se generarán:</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small>
+                                    • Cuadro Nuevo<br>
+                                    • Cuadro Principal<br>
+                                    • Ganaron/Perdieron<br>
+                                    • Apertura por Subramo<br>
+                                    • Primas Cedidas Reaseguro
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small>
+                                    • Ranking Comparativo<br>
+                                    • Ranking por Ramo<br>
+                                    • Sueldos y Gastos<br>
+                                    • Detalle Inmuebles
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <form id="report-generation-form">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-4">
+                            {{ form.periodo.label(class="form-label fw-bold") }}
+                            {{ form.periodo() }}
+                            {% if form.periodo.errors %}
+                                <div class="text-danger small">
+                                    {% for error in form.periodo.errors %}
+                                        <div>{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">Formato: YYYYPP donde PP es el trimestre (01, 02, 03, 04)</div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            {{ form.submit() }}
+                        </div>
+                    </form>
+                    
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="bi bi-clock"></i> <strong>Tiempo estimado:</strong> 3-5 minutos (dependiendo del tamaño de los datos)
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Processing Status -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-activity"></i> Estado de la Generación
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Progress Indicators -->
+                    <div id="progress-container" class="d-none mb-3">
+                        <div class="d-flex align-items-center mb-2">
+                            <div class="spinner-border text-primary me-2" role="status">
+                                <span class="visually-hidden">Generando reportes...</span>
+                            </div>
+                            <span id="progress-text">Iniciando proceso...</span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" 
+                                 role="progressbar" style="width: 100%"></div>
+                        </div>
+                        <small class="text-muted">Por favor, no cierre esta ventana durante el proceso.</small>
+                    </div>
+
+                    <!-- Success Results -->
+                    <div id="success-container" class="d-none">
+                        <div class="alert alert-success">
+                            <h6><i class="bi bi-check-circle"></i> ¡Reportes Generados Exitosamente!</h6>
+                            <div id="success-message"></div>
+                        </div>
+                        
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <div class="card bg-light">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-file-earmark-text fs-1 text-info"></i>
+                                        <h6 class="card-title">Archivos CSV</h6>
+                                        <p class="card-text small" id="csv-location"></p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card bg-light">
+                                    <div class="card-body text-center">
+                                        <i class="bi bi-file-earmark-spreadsheet fs-1 text-success"></i>
+                                        <h6 class="card-title">Archivos Excel</h6>
+                                        <p class="card-text small" id="excel-location"></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Results Display -->
+                    <div id="results-container">
+                        <div class="text-muted text-center py-4">
+                            <i class="bi bi-info-circle"></i>
+                            Los resultados de la generación aparecerán aquí.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Technical Information -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-secondary">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-gear"></i> Información Técnica
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Ubicación de Archivos CSV</h6>
+                            <p class="small text-muted mb-2">
+                                Los archivos CSV se generan en:<br>
+                                <code>ending_files/{período}/</code>
+                            </p>
+                            <p class="small">
+                                Contiene datos en formato tabular para análisis directo.
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Ubicación de Archivos Excel</h6>
+                            <p class="small text-muted mb-2">
+                                Los archivos Excel se generan en:<br>
+                                <code>excel_final_files/{período}/</code>
+                            </p>
+                            <p class="small">
+                                Archivos formateados profesionalmente listos para presentación.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-warning mt-3">
+                        <small>
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <strong>Importante:</strong> Asegúrese de que las tablas de datos estén actualizadas antes de generar reportes. 
+                            El proceso utiliza los datos disponibles en la base de datos al momento de la ejecución.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('report-generation-form');
+    const progressContainer = document.getElementById('progress-container');
+    const successContainer = document.getElementById('success-container');
+    const progressText = document.getElementById('progress-text');
+    const resultsContainer = document.getElementById('results-container');
+    const alertContainer = document.getElementById('alert-container');
+    const successMessage = document.getElementById('success-message');
+    const csvLocation = document.getElementById('csv-location');
+    const excelLocation = document.getElementById('excel-location');
+
+    function showProgress(message) {
+        progressText.textContent = message;
+        progressContainer.classList.remove('d-none');
+        successContainer.classList.add('d-none');
+    }
+
+    function hideProgress() {
+        progressContainer.classList.add('d-none');
+    }
+
+    function showSuccess(data) {
+        hideProgress();
+        successContainer.classList.remove('d-none');
+        
+        successMessage.innerHTML = `
+            <p class="mb-2">${escapeHtml(data.message)}</p>
+            <small><strong>Período:</strong> ${data.periodo}</small>
+        `;
+        
+        csvLocation.textContent = data.csv_directory;
+        excelLocation.textContent = data.excel_directory;
+    }
+
+    function showAlert(type, message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        alertContainer.appendChild(alertDiv);
+        
+        setTimeout(() => {
+            if (alertDiv && alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 8000);
+    }
+
+    function displayLogs(data) {
+        let html = '';
+        
+        if (data.logs && data.logs.length > 0) {
+            html = `<div class="mb-3">
+                <h6>Registro del procesamiento:</h6>
+                <div class="bg-dark text-light p-3 rounded" style="font-family: 'Courier New', monospace; font-size: 0.9rem; max-height: 500px; overflow-y: auto;">`;
+            
+            data.logs.forEach(log => {
+                if (log.trim()) {
+                    let logClass = '';
+                    if (log.includes('❌') || log.includes('ERROR')) logClass = 'text-danger';
+                    else if (log.includes('⚠️') || log.includes('WARNING')) logClass = 'text-warning';
+                    else if (log.includes('✅') || log.includes('🚀')) logClass = 'text-success';
+                    else if (log.includes('INFO')) logClass = 'text-info';
+                    
+                    html += `<div class="${logClass}">${escapeHtml(log)}</div>`;
+                }
+            });
+            
+            html += `</div></div>`;
+        }
+
+        resultsContainer.innerHTML = html;
+    }
+
+    function displayError(error, logs = []) {
+        let html = `<div class="alert alert-danger">
+            <h6><i class="bi bi-exclamation-triangle"></i> Error en la generación</h6>
+            <p class="mb-0">${escapeHtml(error)}</p>
+        </div>`;
+
+        if (logs && logs.length > 0) {
+            html += `<div class="mt-3">
+                <h6>Registro de errores:</h6>
+                <div class="bg-dark text-light p-3 rounded" style="font-family: 'Courier New', monospace; font-size: 0.9rem; max-height: 400px; overflow-y: auto;">`;
+            
+            logs.forEach(log => {
+                if (log.trim()) {
+                    html += `<div class="text-danger">${escapeHtml(log)}</div>`;
+                }
+            });
+            
+            html += `</div></div>`;
+        }
+
+        resultsContainer.innerHTML = html;
+        hideProgress();
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Form submission
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const periodo = formData.get('periodo');
+        
+        if (!periodo) {
+            showAlert('warning', 'El período es requerido');
+            return;
+        }
+        
+        // Validate period format
+        if (!/^\d{6}$/.test(periodo)) {
+            showAlert('warning', 'El período debe tener formato YYYYPP (6 dígitos)');
+            return;
+        }
+        
+        // Clear previous results
+        resultsContainer.innerHTML = '';
+        successContainer.classList.add('d-none');
+        
+        // Start process
+        showProgress('Iniciando generación de reportes...');
+        showAlert('info', 'Proceso iniciado. Por favor espere...');
+        
+        // Disable form during processing
+        const submitButton = form.querySelector('input[type="submit"]');
+        const periodInput = form.querySelector('input[name="periodo"]');
+        submitButton.disabled = true;
+        periodInput.disabled = true;
+        
+        fetch('/data-processing/api/generate-all-reports', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ periodo: parseInt(periodo) })
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Re-enable form
+            submitButton.disabled = false;
+            periodInput.disabled = false;
+            
+            if (data.success) {
+                showSuccess(data);
+                displayLogs(data);
+                showAlert('success', '¡Todos los reportes generados exitosamente!');
+            } else {
+                displayError(data.error, data.logs);
+                showAlert('danger', 'Error en la generación de reportes');
+            }
+        })
+        .catch(error => {
+            // Re-enable form
+            submitButton.disabled = false;
+            periodInput.disabled = false;
+            
+            hideProgress();
+            displayError('Error de conexión: ' + error.message);
+            showAlert('danger', 'Error de conexión con el servidor');
+        });
+    });
+});
+</script>
+{% endblock %}

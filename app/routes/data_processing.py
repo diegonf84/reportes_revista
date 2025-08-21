@@ -2,13 +2,15 @@ import os
 import logging
 import sqlite3
 import json
+import subprocess
 from io import StringIO
 from pathlib import Path
 from werkzeug.utils import secure_filename
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
 from app.forms.processing_forms import (
     CheckCompaniesForm, LoadDataForm, CreateRecentPeriodsForm, 
-    CreateBaseSubramosForm, CreateFinancialConceptsForm, CreateSubramosForm, CheckPeriodsForm, UploadMDBForm
+    CreateBaseSubramosForm, CreateFinancialConceptsForm, CreateSubramosForm, 
+    CheckPeriodsForm, UploadMDBForm, ReportGenerationForm
 )
 
 # Importar módulos existentes
@@ -520,3 +522,108 @@ def api_create_subramos():
             'success': False,
             'error': f'Error en la solicitud: {str(e)}'
         }), 400
+
+
+@data_processing_bp.route('/report-generation')
+def report_generation():
+    """Página para generar todos los reportes CSV y Excel."""
+    form = ReportGenerationForm()
+    return render_template('data_processing/report_generation.html', form=form)
+
+
+@data_processing_bp.route('/api/generate-all-reports', methods=['POST'])
+def api_generate_all_reports():
+    """API endpoint para generar todos los reportes CSV y Excel."""
+    try:
+        data = request.get_json()
+        periodo = data.get('periodo')
+        
+        if not periodo:
+            return jsonify({
+                'success': False,
+                'error': 'El período es requerido'
+            }), 400
+        
+        # Validar formato del período
+        periodo_str = str(periodo)
+        if len(periodo_str) != 6:
+            return jsonify({
+                'success': False,
+                'error': 'El período debe tener formato YYYYPP (6 dígitos)'
+            }), 400
+        
+        # Obtener directorio base del proyecto
+        logs = []
+        
+        try:
+            # Paso 1: Generar archivos CSV
+            logs.append("🚀 Iniciando generación de archivos CSV...")
+            
+            csv_script_path = os.path.join(project_root, "ending_files", "generate_all_reports.py")
+            result_csv = subprocess.run(
+                ['python', csv_script_path, periodo_str],
+                capture_output=True,
+                text=True,
+                cwd=str(project_root),
+                timeout=300  # 5 minutes timeout
+            )
+            
+            if result_csv.returncode != 0:
+                logs.append(f"❌ Error en generación de CSV: {result_csv.stderr}")
+                return jsonify({
+                    'success': False,
+                    'error': f'Error en generación de archivos CSV: {result_csv.stderr}',
+                    'logs': logs
+                }), 500
+            
+            logs.append("✅ Archivos CSV generados exitosamente")
+            logs.extend(result_csv.stdout.split('\n'))
+            
+            # Paso 2: Generar archivos Excel
+            logs.append("🚀 Iniciando generación de archivos Excel...")
+            
+            excel_script_path = os.path.join(project_root, "excel_generators", "generate_all_excel.py")
+            result_excel = subprocess.run(
+                ['python', excel_script_path, periodo_str],
+                capture_output=True,
+                text=True,
+                cwd=str(project_root),
+                timeout=600  # 10 minutes timeout
+            )
+            
+            if result_excel.returncode != 0:
+                logs.append(f"❌ Error en generación de Excel: {result_excel.stderr}")
+                return jsonify({
+                    'success': False,
+                    'error': f'Error en generación de archivos Excel: {result_excel.stderr}',
+                    'logs': logs
+                }), 500
+            
+            logs.append("✅ Archivos Excel generados exitosamente")
+            logs.extend(result_excel.stdout.split('\n'))
+            
+            # Información de archivos generados
+            csv_dir = os.path.join(project_root, "ending_files", periodo_str)
+            excel_dir = os.path.join(project_root, "excel_final_files", periodo_str)
+            
+            return jsonify({
+                'success': True,
+                'logs': logs,
+                'message': f'Todos los reportes generados exitosamente para período {periodo_str}',
+                'csv_directory': csv_dir,
+                'excel_directory': excel_dir,
+                'periodo': periodo_str
+            })
+            
+        except subprocess.TimeoutExpired:
+            return jsonify({
+                'success': False,
+                'error': 'El proceso excedió el tiempo límite. Verifique los datos y vuelva a intentar.',
+                'logs': logs
+            }), 500
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error inesperado: {str(e)}'
+        }), 500
