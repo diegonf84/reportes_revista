@@ -94,12 +94,11 @@ if __name__ == "__main__":
     default_definitions_path = os.path.join(script_dir, 'report_definitions.json')
     
     parser = argparse.ArgumentParser(description='Genera reportes del mercado asegurador')
+    parser.add_argument('period', help='Período para generar reportes (formato YYYYPP)')
     parser.add_argument('--definitions', type=str, default=default_definitions_path,
                         help='Archivo JSON con definiciones de reportes')
     parser.add_argument('--output_dir', type=str, default='./',
                         help='Directorio base donde guardar los reportes')
-    parser.add_argument('--period', type=str, default='202404',
-                        help='Período para generar reportes (formato YYYYQQ)')
     parser.add_argument('--report', type=str, 
                         help='Nombre específico del reporte a generar (opcional)')
     
