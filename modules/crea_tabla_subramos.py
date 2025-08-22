@@ -12,10 +12,10 @@ The resulting base_subramos table contains:
 - gs_prod_comisiones, gs_prod_otros, gs_exp_sueldos, gs_a_c_reaseguro
 
 Usage:
-    python modules/crea_tabla_subramos.py [--periodo_inicial YYYYPP]
+    python modules/crea_tabla_subramos.py YYYYPP
 
 Example:
-    python modules/crea_tabla_subramos.py --periodo_inicial 202301
+    python modules/crea_tabla_subramos.py 202301
 """
 
 import pandas as pd
@@ -153,6 +153,12 @@ def generate_subramos_table(data: pd.DataFrame, codigos: Dict[str, Dict[str, int
         gs_prod_comisiones=('gs_prod_comisiones', 'sum'),
         gs_prod_otros=('gs_prod_otros', 'sum'),
         gs_exp_sueldos=('gs_exp_sueldos', 'sum'),
+        gs_exp_ret_sindicos = ('gs_exp_ret_sindicos', 'sum'),
+        gs_exp_honorarios = ('gs_exp_honorarios', 'sum'),
+        gs_exp_impuestos = ('gs_exp_impuestos', 'sum'),
+        gs_exp_publicidad = ('gs_exp_publicidad', 'sum'),
+        gs_exp_otros = ('gs_exp_otros', 'sum'),
+        gs_reaseg_act_prod=('gs_reaseg_act_prod', 'sum'),
         gs_a_c_reaseguro=('gs_a_c_reaseg', 'sum'),
     )
     
@@ -241,8 +247,8 @@ if __name__ == "__main__":
         description='Create base_subramos table with aggregated insurance data',
         epilog="""
 Examples:
-  python modules/crea_tabla_subramos.py
-  python modules/crea_tabla_subramos.py --periodo_inicial 202301
+  python modules/crea_tabla_subramos.py 202301
+  python modules/crea_tabla_subramos.py 202502
 
 Prerequisites:
   1. Run crea_tabla_ultimos_periodos.py first
@@ -255,9 +261,9 @@ Output:
     )
     
     parser.add_argument(
-        '--periodo_inicial', 
+        'periodo_inicial', 
         type=int, 
-        help='Initial period (YYYYPP format) to filter data from. Default: last 2 years'
+        help='Initial period (YYYYPP format) to filter data from'
     )
     
     args = parser.parse_args()

@@ -10,7 +10,7 @@ from flask import Blueprint, render_template, request, jsonify, flash, redirect,
 from app.forms.processing_forms import (
     CheckCompaniesForm, LoadDataForm, CreateRecentPeriodsForm, 
     CreateBaseSubramosForm, CreateFinancialConceptsForm, CreateSubramosForm, 
-    CheckPeriodsForm, UploadMDBForm, ReportGenerationForm
+    CheckPeriodsForm, UploadMDBForm, ReportGenerationForm, ConceptoForm
 )
 
 # Importar módulos existentes
@@ -627,3 +627,202 @@ def api_generate_all_reports():
             'success': False,
             'error': f'Error inesperado: {str(e)}'
         }), 500
+
+
+# Helper functions for conceptos management
+def get_dropdown_choices():
+    """Get unique values from parametros_reportes for dropdown choices."""
+    from utils.db_manager import db_manager
+    
+    try:
+        with db_manager.get_connection() as conn:
+            # Get unique reportes
+            reportes_query = "SELECT DISTINCT reporte FROM parametros_reportes ORDER BY reporte"
+            reportes = [row[0] for row in conn.execute(reportes_query).fetchall()]
+            reporte_choices = [(r, r) for r in reportes]
+            
+            # Get unique referencias
+            referencias_query = "SELECT DISTINCT referencia FROM parametros_reportes ORDER BY referencia"
+            referencias = [row[0] for row in conn.execute(referencias_query).fetchall()]
+            referencia_choices = [(r, r) for r in referencias]
+            
+            return reporte_choices, referencia_choices
+    except Exception as e:
+        logging.error(f"Error getting dropdown choices: {e}")
+        return [], []
+
+
+# Conceptos CRUD Routes
+@data_processing_bp.route('/conceptos')
+def list_conceptos():
+    """Lista todos los conceptos de reportes."""
+    from utils.db_manager import db_manager
+    
+    try:
+        with db_manager.get_connection() as conn:
+            query = """
+                SELECT id, reporte, referencia, concepto, es_subramo 
+                FROM conceptos_reportes 
+                ORDER BY reporte, referencia, concepto
+            """
+            conceptos = conn.execute(query).fetchall()
+            
+        return render_template('data_processing/conceptos/list.html', conceptos=conceptos)
+    
+    except Exception as e:
+        flash(f'Error al cargar conceptos: {str(e)}', 'error')
+        return redirect(url_for('dashboard'))
+
+
+@data_processing_bp.route('/conceptos/add', methods=['GET', 'POST'])
+def add_concepto():
+    """Agregar nuevo concepto."""
+    from utils.db_manager import db_manager
+    
+    form = ConceptoForm()
+    
+    # Populate dropdown choices
+    reporte_choices, referencia_choices = get_dropdown_choices()
+    form.reporte.choices = reporte_choices
+    form.referencia.choices = referencia_choices
+    
+    if form.validate_on_submit():
+        try:
+            with db_manager.get_connection() as conn:
+                # Check if concept already exists
+                check_query = """
+                    SELECT id FROM conceptos_reportes 
+                    WHERE reporte = ? AND referencia = ? AND concepto = ?
+                """
+                existing = conn.execute(check_query, (
+                    form.reporte.data, 
+                    form.referencia.data, 
+                    form.concepto.data
+                )).fetchone()
+                
+                if existing:
+                    flash('Ya existe un concepto con esa combinación de reporte, referencia y concepto.', 'error')
+                    return render_template('data_processing/conceptos/add.html', form=form)
+                
+                # Insert new concept
+                insert_query = """
+                    INSERT INTO conceptos_reportes (reporte, referencia, concepto, es_subramo)
+                    VALUES (?, ?, ?, ?)
+                """
+                conn.execute(insert_query, (
+                    form.reporte.data,
+                    form.referencia.data, 
+                    form.concepto.data,
+                    form.es_subramo.data
+                ))
+                conn.commit()
+                
+            flash('Concepto agregado exitosamente.', 'success')
+            return redirect(url_for('data_processing.list_conceptos'))
+            
+        except Exception as e:
+            flash(f'Error al agregar concepto: {str(e)}', 'error')
+    
+    return render_template('data_processing/conceptos/add.html', form=form)
+
+
+@data_processing_bp.route('/conceptos/edit/<int:concepto_id>', methods=['GET', 'POST'])
+def edit_concepto(concepto_id):
+    """Editar concepto existente."""
+    from utils.db_manager import db_manager
+    
+    form = ConceptoForm()
+    
+    # Populate dropdown choices
+    reporte_choices, referencia_choices = get_dropdown_choices()
+    form.reporte.choices = reporte_choices
+    form.referencia.choices = referencia_choices
+    
+    try:
+        with db_manager.get_connection() as conn:
+            # Get current concept
+            query = """
+                SELECT id, reporte, referencia, concepto, es_subramo 
+                FROM conceptos_reportes WHERE id = ?
+            """
+            concepto = conn.execute(query, (concepto_id,)).fetchone()
+            
+            if not concepto:
+                flash('Concepto no encontrado.', 'error')
+                return redirect(url_for('data_processing.list_conceptos'))
+            
+            if form.validate_on_submit():
+                # Check if updated concept already exists (excluding current)
+                check_query = """
+                    SELECT id FROM conceptos_reportes 
+                    WHERE reporte = ? AND referencia = ? AND concepto = ? AND id != ?
+                """
+                existing = conn.execute(check_query, (
+                    form.reporte.data, 
+                    form.referencia.data, 
+                    form.concepto.data,
+                    concepto_id
+                )).fetchone()
+                
+                if existing:
+                    flash('Ya existe un concepto con esa combinación de reporte, referencia y concepto.', 'error')
+                    return render_template('data_processing/conceptos/edit.html', form=form, concepto_id=concepto_id)
+                
+                # Update concept
+                update_query = """
+                    UPDATE conceptos_reportes 
+                    SET reporte = ?, referencia = ?, concepto = ?, es_subramo = ?
+                    WHERE id = ?
+                """
+                conn.execute(update_query, (
+                    form.reporte.data,
+                    form.referencia.data,
+                    form.concepto.data,
+                    form.es_subramo.data,
+                    concepto_id
+                ))
+                conn.commit()
+                
+                flash('Concepto actualizado exitosamente.', 'success')
+                return redirect(url_for('data_processing.list_conceptos'))
+            
+            # Pre-fill form with current values
+            if request.method == 'GET':
+                form.reporte.data = concepto[1]
+                form.referencia.data = concepto[2]
+                form.concepto.data = concepto[3]
+                form.es_subramo.data = bool(concepto[4])
+    
+    except Exception as e:
+        flash(f'Error al cargar/actualizar concepto: {str(e)}', 'error')
+        return redirect(url_for('data_processing.list_conceptos'))
+    
+    return render_template('data_processing/conceptos/edit.html', form=form, concepto_id=concepto_id)
+
+
+@data_processing_bp.route('/conceptos/delete/<int:concepto_id>', methods=['POST'])
+def delete_concepto(concepto_id):
+    """Eliminar concepto."""
+    from utils.db_manager import db_manager
+    
+    try:
+        with db_manager.get_connection() as conn:
+            # Check if concept exists
+            check_query = "SELECT id FROM conceptos_reportes WHERE id = ?"
+            existing = conn.execute(check_query, (concepto_id,)).fetchone()
+            
+            if not existing:
+                flash('Concepto no encontrado.', 'error')
+                return redirect(url_for('data_processing.list_conceptos'))
+            
+            # Delete concept
+            delete_query = "DELETE FROM conceptos_reportes WHERE id = ?"
+            conn.execute(delete_query, (concepto_id,))
+            conn.commit()
+            
+            flash('Concepto eliminado exitosamente.', 'success')
+    
+    except Exception as e:
+        flash(f'Error al eliminar concepto: {str(e)}', 'error')
+    
+    return redirect(url_for('data_processing.list_conceptos'))

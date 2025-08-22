@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Concepto - Sistema de Reportes{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('data_processing.list_conceptos') }}">Conceptos</a></li>
+                    <li class="breadcrumb-item active">Editar Concepto</li>
+                </ol>
+            </nav>
+            <h2><i class="bi bi-pencil"></i> Editar Concepto</h2>
+            <p class="text-muted">Modificar información del concepto (ID: {{ concepto_id }})</p>
+        </div>
+    </div>
+
+    <!-- Form -->
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-form-check"></i> Información del Concepto
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        
+                        <!-- ID Display -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">ID del Concepto</label>
+                            <input type="text" class="form-control bg-light" value="{{ concepto_id }}" readonly>
+                            <div class="form-text">Identificador único del concepto (no modificable)</div>
+                        </div>
+
+                        <!-- Reporte -->
+                        <div class="mb-3">
+                            {{ form.reporte.label(class="form-label fw-bold") }}
+                            {{ form.reporte() }}
+                            {% if form.reporte.errors %}
+                                <div class="text-danger small">
+                                    {% for error in form.reporte.errors %}
+                                        <div>{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">Seleccione el tipo de reporte asociado</div>
+                        </div>
+
+                        <!-- Referencia -->
+                        <div class="mb-3">
+                            {{ form.referencia.label(class="form-label fw-bold") }}
+                            {{ form.referencia() }}
+                            {% if form.referencia.errors %}
+                                <div class="text-danger small">
+                                    {% for error in form.referencia.errors %}
+                                        <div>{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">Seleccione la referencia específica</div>
+                        </div>
+
+                        <!-- Concepto -->
+                        <div class="mb-3">
+                            {{ form.concepto.label(class="form-label fw-bold") }}
+                            {{ form.concepto() }}
+                            {% if form.concepto.errors %}
+                                <div class="text-danger small">
+                                    {% for error in form.concepto.errors %}
+                                        <div>{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                Nombre del concepto en formato snake_case (ej: resultado_tecnico, primas_emitidas)
+                            </div>
+                        </div>
+
+                        <!-- Es Subramo -->
+                        <div class="mb-4">
+                            <div class="form-check">
+                                {{ form.es_subramo() }}
+                                {{ form.es_subramo.label(class="form-check-label fw-bold", for="es_subramo") }}
+                            </div>
+                            {% if form.es_subramo.errors %}
+                                <div class="text-danger small">
+                                    {% for error in form.es_subramo.errors %}
+                                        <div>{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                Marque si este concepto se calcula agrupado por código de subramo
+                            </div>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('data_processing.list_conceptos') }}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> Actualizar Concepto
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Warning Card -->
+    <div class="row mt-4 justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-exclamation-triangle"></i> Importante
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-2">
+                        <strong>Tenga cuidado al modificar conceptos existentes:</strong>
+                    </p>
+                    <ul class="mb-0">
+                        <li>Los cambios pueden afectar reportes que ya estén generados</li>
+                        <li>Verifique que el nuevo concepto no cause duplicados</li>
+                        <li>Los módulos de procesamiento pueden necesitar los conceptos con nombres específicos</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

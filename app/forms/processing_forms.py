@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileRequired, FileAllowed
-from wtforms import IntegerField, BooleanField, SubmitField, SelectField
+from wtforms import IntegerField, BooleanField, SubmitField, SelectField, StringField
 from wtforms.validators import DataRequired, NumberRange, Optional, ValidationError
 import datetime
 
@@ -158,3 +158,46 @@ class ReportGenerationForm(FlaskForm):
     )
     
     submit = SubmitField('Generar Todos los Reportes', render_kw={'class': 'btn btn-success btn-lg'})
+
+
+class ConceptoForm(FlaskForm):
+    """Formulario para gestión de conceptos de reportes."""
+    reporte = SelectField(
+        'Reporte',
+        choices=[],
+        validators=[DataRequired()],
+        render_kw={
+            'class': 'form-control',
+            'title': 'Seleccionar tipo de reporte'
+        }
+    )
+    
+    referencia = SelectField(
+        'Referencia',
+        choices=[],
+        validators=[DataRequired()],
+        render_kw={
+            'class': 'form-control',
+            'title': 'Seleccionar referencia'
+        }
+    )
+    
+    concepto = StringField(
+        'Concepto',
+        validators=[DataRequired()],
+        render_kw={
+            'placeholder': 'nombre_concepto',
+            'class': 'form-control',
+            'title': 'Nombre del concepto (ej: resultado_tecnico, primas_emitidas)'
+        }
+    )
+    
+    es_subramo = BooleanField(
+        'Es por Subramo',
+        render_kw={
+            'class': 'form-check-input',
+            'title': 'Marcar si este concepto se calcula por subramo'
+        }
+    )
+    
+    submit = SubmitField('Guardar Concepto', render_kw={'class': 'btn btn-primary'})

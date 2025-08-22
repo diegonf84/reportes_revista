@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Conceptos - Sistema de Reportes{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Gestión de Conceptos</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="bi bi-tags"></i> Gestión de Conceptos de Reportes</h2>
+                    <p class="text-muted">Administrar conceptos para generación de reportes</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('data_processing.add_concepto') }}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Nuevo Concepto
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search and Filter -->
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <input type="text" id="searchInput" class="form-control" placeholder="Buscar por reporte, referencia o concepto...">
+        </div>
+        <div class="col-md-6 text-end">
+            <span class="badge bg-info">Total: {{ conceptos|length }} conceptos</span>
+        </div>
+    </div>
+
+    <!-- Conceptos Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-table"></i> Lista de Conceptos
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if conceptos %}
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="conceptosTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Reporte</th>
+                                    <th>Referencia</th>
+                                    <th>Concepto</th>
+                                    <th>Es Subramo</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for concepto in conceptos %}
+                                <tr>
+                                    <td>{{ concepto[0] }}</td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ concepto[1] }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ concepto[2] }}</span>
+                                    </td>
+                                    <td><strong>{{ concepto[3] }}</strong></td>
+                                    <td>
+                                        {% if concepto[4] %}
+                                            <span class="badge bg-success">
+                                                <i class="bi bi-check-circle"></i> Sí
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-light text-dark">
+                                                <i class="bi bi-x-circle"></i> No
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <a href="{{ url_for('data_processing.edit_concepto', concepto_id=concepto[0]) }}" 
+                                               class="btn btn-sm btn-outline-primary" title="Editar">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                    onclick="deleteConcepto({{ concepto[0] }}, '{{ concepto[3] }}')" title="Eliminar">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-inbox display-1 text-muted"></i>
+                        <h4 class="text-muted mt-3">No hay conceptos registrados</h4>
+                        <p class="text-muted">Agregue el primer concepto para empezar.</p>
+                        <a href="{{ url_for('data_processing.add_concepto') }}" class="btn btn-primary">
+                            <i class="bi bi-plus-circle"></i> Agregar Primer Concepto
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Eliminación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Está seguro que desea eliminar el concepto <strong id="conceptoName"></strong>?</p>
+                <p class="text-danger"><small>Esta acción no se puede deshacer.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Search functionality
+document.getElementById('searchInput').addEventListener('keyup', function() {
+    const searchTerm = this.value.toLowerCase();
+    const table = document.getElementById('conceptosTable');
+    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const cells = row.getElementsByTagName('td');
+        let matchFound = false;
+        
+        // Search in reporte, referencia, and concepto columns (indices 1, 2, 3)
+        for (let j = 1; j <= 3; j++) {
+            if (cells[j] && cells[j].textContent.toLowerCase().includes(searchTerm)) {
+                matchFound = true;
+                break;
+            }
+        }
+        
+        row.style.display = matchFound ? '' : 'none';
+    }
+});
+
+// Delete functionality
+function deleteConcepto(conceptoId, conceptoName) {
+    document.getElementById('conceptoName').textContent = conceptoName;
+    document.getElementById('deleteForm').action = `/data-processing/conceptos/delete/${conceptoId}`;
+    
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+}
+</script>
+{% endblock %}
