@@ -33,13 +33,17 @@ def create_excel_ranking_comparativo_completo(csv_path: str, output_path: str, p
     ws_ranking = wb.create_sheet(title="Ranking")
     crear_hoja_ranking(ws_ranking, df, tipos_disponibles)
     
-    # === HOJA 2: BASE DETALLE ===
+    # === HOJA 2: RANKING TOTAL COMPARATIVO ===
+    ws_ranking_total = wb.create_sheet(title="Ranking Total Comparativo")
+    crear_hoja_ranking_total(ws_ranking_total, df)
+    
+    # === HOJA 3: BASE DETALLE ===
     ws_detalle = wb.create_sheet(title="base_detalle")
     crear_hoja_detalle(ws_detalle, df)
     
     # Guardar archivo
     wb.save(output_path)
-    logging.info(f"Excel generado con hojas: Ranking, base_detalle en: {output_path}")
+    logging.info(f"Excel generado con hojas: Ranking, Ranking Total Comparativo, base_detalle en: {output_path}")
 
 def crear_hoja_ranking(ws, df, tipos_disponibles):
     """Crea la hoja principal 'Ranking' con cuadros por tipo"""
@@ -135,6 +139,102 @@ def crear_hoja_ranking(ws, df, tipos_disponibles):
         cell_total_var.alignment = center_alignment
         
         current_row += 3  # Espacio entre tipos
+    
+    # Ajustar anchos de columnas
+    column_widths = [36, 16, 11]
+    for col_idx, width in enumerate(column_widths, 1):
+        ws.column_dimensions[get_column_letter(col_idx)].width = width
+
+def crear_hoja_ranking_total(ws, df):
+    """Crea la hoja 'Ranking Total Comparativo' con todas las empresas consolidadas"""
+    
+    # Configurar hoja
+    ws.sheet_view.showGridLines = False
+    
+    # Definir estilos
+    title_font = Font(name="Arial", size=10, bold=True, underline="single")
+    header_font = Font(name="Arial", size=10, bold=True)
+    normal_font = Font(name="Arial", size=10)
+    total_font = Font(name="Arial", size=10, bold=True)
+    
+    center_alignment = Alignment(horizontal='center')
+    center_vertical_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    current_row = 1
+    
+    # Título principal
+    cell_titulo = ws.cell(row=current_row, column=1, value="PRODUCCION TOTAL MERCADO COMPARATIVA")
+    cell_titulo.font = title_font
+    current_row += 2
+    
+    # Headers
+    headers = ["ENTIDAD", "Primas emitidas", "Var %"]
+    for col_idx, header in enumerate(headers, 1):
+        cell = ws.cell(row=current_row, column=col_idx, value=header)
+        cell.font = header_font
+        if col_idx != 3:  # No aplicar borde a columna C (Var %)
+            cell.border = thin_border
+        cell.alignment = center_vertical_alignment
+    
+    ws.row_dimensions[current_row].height = 39
+    current_row += 1
+    
+    # Filtrar tipos (excluir Retiro si existe)
+    tipos_incluir = ['ART', 'Generales', 'M.T.P.P.', 'Vida']
+    df_filtrado = df[df['tipo_cia'].isin(tipos_incluir)].copy()
+    
+    # Datos ordenados por primas emitidas descendente
+    datos_ordenados = df_filtrado.sort_values('primas_emitidas', ascending=False)
+    
+    for _, row_data in datos_ordenados.iterrows():
+        # ENTIDAD
+        cell_entidad = ws.cell(row=current_row, column=1, value=row_data['nombre_corto'])
+        cell_entidad.font = normal_font
+        cell_entidad.border = thin_border
+        
+        # PRIMAS EMITIDAS
+        cell_primas = ws.cell(row=current_row, column=2, value=row_data['primas_emitidas'])
+        cell_primas.font = normal_font
+        cell_primas.border = thin_border
+        cell_primas.number_format = '#,##0,'
+        cell_primas.alignment = center_alignment
+        
+        # VAR %
+        cell_var = ws.cell(row=current_row, column=3, value=row_data['variacion'])
+        cell_var.font = normal_font
+        # No aplicar borde a columna C (Var %)
+        cell_var.number_format = '0.00'
+        cell_var.alignment = center_alignment
+        
+        current_row += 1
+    
+    # Dos filas de espacio
+    current_row += 2
+    
+    # Total general
+    totales_generales = calcular_totales_generales(df_filtrado)
+    
+    cell_total = ws.cell(row=current_row, column=1, value="Total")
+    cell_total.font = total_font
+    cell_total.border = thin_border
+    
+    cell_total_primas = ws.cell(row=current_row, column=2, value=totales_generales['primas_emitidas'])
+    cell_total_primas.font = total_font
+    cell_total_primas.border = thin_border
+    cell_total_primas.number_format = '#,##0,'
+    cell_total_primas.alignment = center_alignment
+    
+    cell_total_var = ws.cell(row=current_row, column=3, value=totales_generales['variacion'])
+    cell_total_var.font = total_font
+    # No aplicar borde a columna C (Var %)
+    cell_total_var.number_format = '0.00'
+    cell_total_var.alignment = center_alignment
     
     # Ajustar anchos de columnas
     column_widths = [36, 16, 11]

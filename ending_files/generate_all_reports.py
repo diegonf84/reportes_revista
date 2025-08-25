@@ -89,7 +89,7 @@ def generate_all_reports(
             logging.error(f"Error al generar reporte {report_name}: {e}")
 
 if __name__ == "__main__":
-    # Get absolute path to script directory for report_definitions.json
+    # Get absolute path to script directory for report_definitions.json and output_dir
     script_dir = os.path.dirname(os.path.abspath(__file__))
     default_definitions_path = os.path.join(script_dir, 'report_definitions.json')
     
@@ -97,7 +97,7 @@ if __name__ == "__main__":
     parser.add_argument('period', help='Período para generar reportes (formato YYYYPP)')
     parser.add_argument('--definitions', type=str, default=default_definitions_path,
                         help='Archivo JSON con definiciones de reportes')
-    parser.add_argument('--output_dir', type=str, default='./',
+    parser.add_argument('--output_dir', type=str, default=script_dir,
                         help='Directorio base donde guardar los reportes')
     parser.add_argument('--report', type=str, 
                         help='Nombre específico del reporte a generar (opcional)')

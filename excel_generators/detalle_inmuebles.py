@@ -67,6 +67,13 @@ def create_excel_detalle_inmuebles(csv_path: str, output_path: str, period: str)
         # Filtrar datos para este tipo
         data_tipo = df[df['tipo_cia'] == tipo_cia].copy()
         
+        # Filter out rows where all inmuebles values are 0
+        data_tipo = data_tipo[
+            (data_tipo['inmuebles_inversion'] != 0) | 
+            (data_tipo['inmuebles_uso_propio'] != 0) | 
+            (data_tipo['inmuebles_total'] != 0)
+        ]
+        
         # Título del tipo (ej: "ART", "Generales") en columna A
         cell_tipo = ws.cell(row=current_row, column=1, value=tipo_cia)
         cell_tipo.font = title_font # Aplicar fuente con subrayado
@@ -82,8 +89,8 @@ def create_excel_detalle_inmuebles(csv_path: str, output_path: str, period: str)
                 cell.alignment = center_alignment
         current_row += 1
         
-        # Datos de las compañías, ordenados por inmuebles_total descendente
-        data_tipo_ordenado = data_tipo.sort_values('inmuebles_total', ascending=False)
+        # Datos de las compañías, ordenados alfabéticamente por nombre
+        data_tipo_ordenado = data_tipo.sort_values('nombre_corto', ascending=True)
         for _, row_data in data_tipo_ordenado.iterrows():
             # Nombre de la entidad en columna B
             cell_entidad = ws.cell(row=current_row, column=2, value=row_data['nombre_corto'])

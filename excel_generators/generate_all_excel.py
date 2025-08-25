@@ -7,8 +7,11 @@ import time
 from apertura_por_subramos import generate_apertura_subramo_excel
 from cuadro_nuevo import generate_cuadro_nuevo_excel
 from cuadro_principal import generate_cuadro_principal_excel
+from detalle_gastos import generate_detalle_gastos_excel
 from detalle_inmuebles import generate_detalle_inmuebles_excel
+from distribucion_inversiones import generate_distribucion_inversiones_excel
 from ganaron_perdieron import generate_ganaron_perdieron_excel
+from indicadores_solvencia import generate_indicadores_solvencia_excel
 from primas_cedidas_reaseguro import generate_primas_cedidas_excel
 from ranking_comparativo import generate_ranking_comparativo_excel
 from ranking_comparativo_por_ramo import generate_ranking_ramo_excel
@@ -28,8 +31,11 @@ def generate_all_excel_reports(period: str) -> None:
         ("Apertura por Subramos", generate_apertura_subramo_excel),
         ("Cuadro Nuevo", generate_cuadro_nuevo_excel),
         ("Cuadro Principal", generate_cuadro_principal_excel),
+        ("Detalle Gastos", generate_detalle_gastos_excel),
         ("Detalle Inmuebles", generate_detalle_inmuebles_excel),
+        ("Distribución Inversiones", generate_distribucion_inversiones_excel),
         ("Ganaron Perdieron", generate_ganaron_perdieron_excel),
+        ("Indicadores Solvencia", generate_indicadores_solvencia_excel),
         ("Primas Cedidas Reaseguro", generate_primas_cedidas_excel),
         ("Ranking Comparativo", generate_ranking_comparativo_excel),
         ("Ranking Comparativo por Ramo", generate_ranking_ramo_excel),
