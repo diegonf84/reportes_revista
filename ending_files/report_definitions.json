@@ -47,7 +47,7 @@
         "    from datos_base b ",
         "    left join datos_companias c on b.cod_cia = c.cod_cia ",
         "    left join datos_ramos_subramos r on r.cod_subramo = b.cod_subramo ",
-        "    where b.cod_subramo not in ('2.070.01','2.070.02','2.060.01','2.060.02','3.000.99') ",
+        "    where b.cod_subramo not in ('2.070.01','2.070.02','3.000.99') ",
         "    GROUP by c.nombre_corto, r.ramo_denominacion ",
         "    HAVING primas_emitidas <>0",
         ") ",

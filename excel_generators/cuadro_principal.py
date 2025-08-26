@@ -46,12 +46,14 @@ def create_excel_cuadro_principal_completo(csv_path: str, output_path: str, peri
         'Robo y Riesgos Similares': 'ROBO Y RIESGOS SIMILARES',
         'Técnico': 'TECNICO',
         'Transporte Público de Pasajeros': 'TRANSPORTE PUBL. DE PASAJ.',
+        'Transporte de Mercaderías': 'TRANSPORTE DE MERCADERIAS',
         'Transportes - Cascos': 'TRANSPORTES - CASCOS',
         'Transportes - Mercaderías': 'TRANSPORTES - MERCADERIAS'
     }
     
     mapa_ramos_vida = {
         'Accidentes Personales': 'ACCIDENTES PERSONALES',
+        'Retiro': 'RETIRO',
         'Salud': 'SALUD',
         'Sepelio': 'SEPELIO',
         'Vida': 'VIDA'
