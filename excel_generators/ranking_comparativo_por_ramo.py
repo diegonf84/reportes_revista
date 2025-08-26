@@ -22,7 +22,7 @@ def create_excel_ranking_ramo_completo(csv_path: str, output_path: str, period: 
     df['variacion'] = df['variacion'].astype(str).str.replace(',', '.').astype(float)
     
     # Obtener todos los ramos disponibles (sin filtros como en tipos)
-    ramos_disponibles = sorted(df['ramo_denomincion'].unique())
+    ramos_disponibles = sorted(df['ramo_denominacion'].unique())
     
     # Crear workbook
     wb = openpyxl.Workbook()
@@ -65,7 +65,7 @@ def crear_hoja_ranking_ramos(ws, df, ramos_disponibles):
     
     # Procesar cada ramo
     for ramo in ramos_disponibles:
-        ramo_data = df[df['ramo_denomincion'] == ramo].copy()
+        ramo_data = df[df['ramo_denominacion'] == ramo].copy()
         
         # Título del ramo
         cell_ramo = ws.cell(row=current_row, column=1, value=ramo)
@@ -160,7 +160,7 @@ def crear_hoja_detalle_ramos(ws, df):
     
     # Headers
     headers = ["Ramo", "ENTIDAD", "Primas emitidas", "Variación %", "Primas anterior"]
-    columns_map = ['ramo_denomincion', 'nombre_corto', 'primas_emitidas', 'variacion', 'primas_anterior']
+    columns_map = ['ramo_denominacion', 'nombre_corto', 'primas_emitidas', 'variacion', 'primas_anterior']
     
     current_row = 1
     
@@ -175,7 +175,7 @@ def crear_hoja_detalle_ramos(ws, df):
     current_row += 1
     
     # Datos ordenados por ramo y entidad
-    datos_ordenados = df.sort_values(['ramo_denomincion', 'nombre_corto'])
+    datos_ordenados = df.sort_values(['ramo_denominacion', 'nombre_corto'])
     
     for _, row_data in datos_ordenados.iterrows():
         for col_idx, csv_col in enumerate(columns_map, 1):

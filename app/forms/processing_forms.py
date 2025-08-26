@@ -67,32 +67,16 @@ class LoadDataForm(FlaskForm):
 
 class CreateRecentPeriodsForm(FlaskForm):
     """Formulario para crear tabla de períodos recientes."""
-    periodo_inicial = IntegerField(
-        'Período Inicial (Opcional)', 
-        validators=[Optional(), validate_period_format],
-        render_kw={
-            'placeholder': '202301',
-            'class': 'form-control',
-            'title': 'Período inicial desde el cual filtrar (opcional, por defecto últimos 2 años)'
-        }
-    )
+    # Sin selección manual de período - usa automáticamente los últimos 2 años
     
     submit = SubmitField('Crear Tabla Períodos', render_kw={'class': 'btn btn-info'})
 
 
 class CreateBaseSubramosForm(FlaskForm):
-    """Formulario para crear tabla base de subramos."""
-    periodo_inicial = IntegerField(
-        'Período Inicial (Opcional)', 
-        validators=[Optional(), validate_period_format],
-        render_kw={
-            'placeholder': '202301',
-            'class': 'form-control',
-            'title': 'Período inicial desde el cual filtrar (opcional, por defecto últimos 2 años)'
-        }
-    )
+    """Formulario para crear tablas base de subramos y ramos."""
+    # Sin selección manual de período - usa automáticamente los últimos 2 años
     
-    submit = SubmitField('Crear Tabla Base Subramos', render_kw={'class': 'btn btn-info'})
+    submit = SubmitField('Crear Ambas Tablas', render_kw={'class': 'btn btn-info'})
 
 
 class CreateFinancialConceptsForm(FlaskForm):
@@ -101,7 +85,7 @@ class CreateFinancialConceptsForm(FlaskForm):
 
 
 class CreateSubramosForm(FlaskForm):
-    """Formulario para crear tabla de subramos corregida."""
+    """Formulario para crear tablas de subramos y ramos corregidas."""
     periodo = IntegerField(
         'Período', 
         validators=[DataRequired(), validate_period_format],
@@ -120,7 +104,7 @@ class CreateSubramosForm(FlaskForm):
         }
     )
     
-    submit = SubmitField('Crear Tabla Subramos', render_kw={'class': 'btn btn-info'})
+    submit = SubmitField('Crear Ambas Tablas Corregidas', render_kw={'class': 'btn btn-info'})
 
 
 class CheckPeriodsForm(FlaskForm):

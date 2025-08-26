@@ -1,21 +1,21 @@
 """
-Module to create base_subramos table with aggregated insurance data by subramo.
+Module to create base_ramos table with aggregated insurance data by ramo.
 
 This module processes balance data and creates aggregated metrics per company,
-period, and subramo using account mappings defined in conceptos_reportes and
+period, and ramo using account mappings defined in conceptos_reportes and
 parametros_reportes tables.
 
-The resulting base_subramos table contains:
+The resulting base_ramos table contains:
 - primas_emitidas, primas_devengadas
 - siniestros_devengados, gastos_totales_devengados  
 - primas_cedidas
 - gs_prod_comisiones, gs_prod_otros, gs_exp_sueldos, gs_a_c_reaseguro
 
 Usage:
-    python modules/crea_tabla_subramos.py YYYYPP
+    python modules/crea_tabla_ramos.py
 
 Example:
-    python modules/crea_tabla_subramos.py 202301
+    python modules/crea_tabla_ramos.py
 """
 
 import pandas as pd
@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 def get_data(conn: sqlite3.Connection, periodo_inicial: int) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
-    Obtiene datos necesarios de la base de datos para generar reportes por subramos.
+    Obtiene datos necesarios de la base de datos para generar reportes por ramos.
 
     Args:
         conn (sqlite3.Connection): Conexión a la base de datos
@@ -48,7 +48,7 @@ def get_data(conn: sqlite3.Connection, periodo_inicial: int) -> Tuple[pd.DataFra
     logger.info(f"Obteniendo datos desde período {periodo_inicial}")
     
     # Verificar que las tablas existan
-    required_tables = ['base_balance_ultimos_periodos', 'conceptos_reportes', 'parametros_reportes']
+    required_tables = ['base_balance_ultimos_periodos', 'conceptos_reportes', 'parametros_reportes', 'datos_ramos_subramos']
     for table in required_tables:
         if not db_manager.table_exists(table):
             raise ValueError(
@@ -56,11 +56,13 @@ def get_data(conn: sqlite3.Connection, periodo_inicial: int) -> Tuple[pd.DataFra
                 f"Make sure to run the prerequisites modules first."
             )
     
-    # Obtener datos base
-    base = pd.read_sql_query(
-        f"SELECT * FROM base_balance_ultimos_periodos WHERE periodo >= {periodo_inicial}",
-        conn
-    )
+    # Obtener datos base con JOIN a datos_ramos_subramos para obtener ramo_denominacion
+    base = pd.read_sql_query(f"""
+        SELECT b.*, r.ramo_denominacion 
+        FROM base_balance_ultimos_periodos b
+        LEFT JOIN datos_ramos_subramos r USING (cod_subramo)
+        WHERE b.periodo >= {periodo_inicial}
+    """, conn)
     
     if len(base) == 0:
         raise ValueError(
@@ -68,7 +70,13 @@ def get_data(conn: sqlite3.Connection, periodo_inicial: int) -> Tuple[pd.DataFra
             f"Make sure to run crea_tabla_ultimos_periodos.py first."
         )
     
-    # Obtener filtros para subramos
+    # Verificar que tenemos ramo_denominacion
+    if base['ramo_denominacion'].isna().all():
+        raise ValueError(
+            "No ramo_denominacion found. Check datos_ramos_subramos table mapping."
+        )
+    
+    # Obtener filtros para subramos (usamos los mismos conceptos)
     filtro = pd.read_sql_query(
         "SELECT * FROM conceptos_reportes WHERE es_subramo = 1", 
         conn
@@ -102,15 +110,16 @@ def get_data(conn: sqlite3.Connection, periodo_inicial: int) -> Tuple[pd.DataFra
         )
     
     logger.info(f"Base data loaded: {format_number(len(base))} records")
+    logger.info(f"Ramos found: {base['ramo_denominacion'].nunique()} unique ramos")
     logger.info(f"Subramo concepts: {len(filtro)} concepts")
     logger.info(f"Matching parameters: {len(parametros_reportes)} mappings")
     
     return base, parametros_reportes
 
 
-def generate_subramos_table(data: pd.DataFrame, codigos: Dict[str, Dict[str, int]]) -> pd.DataFrame:
+def generate_ramos_table(data: pd.DataFrame, codigos: Dict[str, Dict[str, int]]) -> pd.DataFrame:
     """
-    Genera tabla agregada por subramos aplicando mapeos de códigos contables.
+    Genera tabla agregada por ramos aplicando mapeos de códigos contables.
 
     Args:
         data (pd.DataFrame): DataFrame con datos base de balance
@@ -118,7 +127,7 @@ def generate_subramos_table(data: pd.DataFrame, codigos: Dict[str, Dict[str, int
                                            Estructura: {concepto: {cod_cuenta: signo}}
 
     Returns:
-        pd.DataFrame: DataFrame agregado por cod_cia, periodo, cod_subramo
+        pd.DataFrame: DataFrame agregado por cod_cia, periodo, ramo_denominacion
     """
     logger.info(f"Processing {format_number(len(data))} records with {len(codigos)} concepts")
     
@@ -138,11 +147,11 @@ def generate_subramos_table(data: pd.DataFrame, codigos: Dict[str, Dict[str, int
             mapped_count = (result['cod_cuenta'].isin(mapping.keys())).sum()
             logger.info(f"Concept '{concepto}': {len(mapping)} account codes, {mapped_count} records matched")
 
-    # Agrupar por compañía, período y subramo
-    logger.info("Aggregating data by cod_cia, periodo, cod_subramo...")
+    # Agrupar por compañía, período y ramo_denominacion
+    logger.info("Aggregating data by cod_cia, periodo, ramo_denominacion...")
     
     aggregated = result.groupby(
-        by=['cod_cia', 'periodo', 'cod_subramo'],
+        by=['cod_cia', 'periodo', 'ramo_denominacion'],
         as_index=False
     ).agg(
         primas_emitidas=('primas_emitidas', 'sum'),
@@ -169,9 +178,9 @@ def generate_subramos_table(data: pd.DataFrame, codigos: Dict[str, Dict[str, int
 
 def main() -> None:
     """
-    Crea tabla base_subramos con información agregada por subramos.
+    Crea tabla base_ramos con información agregada por ramos.
     
-    Esta función agrupa los datos por compañía, período y subramo, calculando
+    Esta función agrupa los datos por compañía, período y ramo_denominacion, calculando
     diferentes métricas como primas emitidas, primas devengadas, siniestros
     devengados, gastos totales devengados y primas cedidas.
     
@@ -189,7 +198,7 @@ def main() -> None:
     anio_actual = datetime.datetime.now().year
     periodo_inicial = int(f"{anio_actual - 2}00")
 
-    logger.info(f"Creating base_subramos table with data from period: {periodo_inicial}")
+    logger.info(f"Creating base_ramos table with data from period: {periodo_inicial}")
     logger.info(f"Database: {database_path}")
 
     try:
@@ -208,33 +217,33 @@ def main() -> None:
                 logger.info(f"Concept '{concepto}': {len(mapping)} account codes mapped")
 
             # Generar tabla agregada
-            result_df = generate_subramos_table(base, codigos_map)
+            result_df = generate_ramos_table(base, codigos_map)
             
             # Mostrar estadísticas por período
             periods = sorted(result_df['periodo'].unique())
             companies = result_df['cod_cia'].nunique()
-            subramos = result_df['cod_subramo'].nunique()
+            ramos = result_df['ramo_denominacion'].nunique()
             
             logger.info(f"Final statistics:")
             logger.info(f"  - Periods: {len(periods)} ({periods[0]} to {periods[-1]})")
             logger.info(f"  - Companies: {companies}")
-            logger.info(f"  - Subramos: {subramos}")
+            logger.info(f"  - Ramos: {ramos}")
             logger.info(f"  - Total records: {format_number(len(result_df))}")
             
             # Crear nueva tabla
-            logger.info("Creating base_subramos table...")
-            conn.execute("DROP TABLE IF EXISTS base_subramos")
-            result_df.to_sql('base_subramos', conn, index=False)
+            logger.info("Creating base_ramos table...")
+            conn.execute("DROP TABLE IF EXISTS base_ramos")
+            result_df.to_sql('base_ramos', conn, index=False)
             
             # Verificar creación
-            count = pd.read_sql_query("SELECT COUNT(*) as count FROM base_subramos", conn)
-            logger.info(f"✅ Table base_subramos created successfully with {format_number(count['count'].iloc[0])} records")
+            count = pd.read_sql_query("SELECT COUNT(*) as count FROM base_ramos", conn)
+            logger.info(f"✅ Table base_ramos created successfully with {format_number(count['count'].iloc[0])} records")
 
     except sqlite3.Error as e:
         logger.error(f"❌ Database error: {e}")
         raise
     except Exception as e:
-        logger.error(f"❌ Error creating base_subramos table: {e}")
+        logger.error(f"❌ Error creating base_ramos table: {e}")
         raise
 
 
@@ -242,17 +251,18 @@ if __name__ == "__main__":
     setup_logging()
     
     parser = argparse.ArgumentParser(
-        description='Create base_subramos table with aggregated insurance data using automatic period detection',
+        description='Create base_ramos table with aggregated insurance data by ramo using automatic period detection',
         epilog="""
 Example:
-  python modules/crea_tabla_subramos.py
+  python modules/crea_tabla_ramos.py
 
 Prerequisites:
   1. Run crea_tabla_ultimos_periodos.py first
   2. Ensure conceptos_reportes and parametros_reportes tables are configured
+  3. Ensure datos_ramos_subramos table exists with ramo mappings
 
 Output:
-  Creates base_subramos table with aggregated data by cod_cia, periodo, cod_subramo
+  Creates base_ramos table with aggregated data by cod_cia, periodo, ramo_denominacion
   Uses automatic period detection (last 2 years) to ensure sufficient historical data
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter

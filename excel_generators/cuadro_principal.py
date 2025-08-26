@@ -58,7 +58,7 @@ def create_excel_cuadro_principal_completo(csv_path: str, output_path: str, peri
     }
     
     # Clasificar ramos por tipo
-    todos_los_ramos = df['ramo_denomincion'].unique()
+    todos_los_ramos = df['ramo_denominacion'].unique()
     
     ramos_generales = [ramo for ramo in todos_los_ramos if ramo in mapa_ramos_generales.keys()]
     ramos_vida = [ramo for ramo in todos_los_ramos if ramo in mapa_ramos_vida.keys()]
@@ -70,17 +70,17 @@ def create_excel_cuadro_principal_completo(csv_path: str, output_path: str, peri
     
     # Crear hojas
     if ramos_generales:
-        generales_data = df[df['ramo_denomincion'].isin(ramos_generales)].copy()
+        generales_data = df[df['ramo_denominacion'].isin(ramos_generales)].copy()
         ws_generales = wb.create_sheet(title="Generales")
         crear_hoja_tipo(ws_generales, generales_data, ramos_generales, mapa_ramos_generales, tiene_resumen=True)
     
     if ramos_vida:
-        vida_data = df[df['ramo_denomincion'].isin(ramos_vida)].copy()
+        vida_data = df[df['ramo_denominacion'].isin(ramos_vida)].copy()
         ws_vida = wb.create_sheet(title="Vida")
         crear_hoja_tipo(ws_vida, vida_data, ramos_vida, mapa_ramos_vida, tiene_resumen=True)
     
     if ramos_art:
-        art_data = df[df['ramo_denomincion'].isin(ramos_art)].copy()
+        art_data = df[df['ramo_denominacion'].isin(ramos_art)].copy()
         ws_art = wb.create_sheet(title="ART")
         crear_hoja_tipo(ws_art, art_data, ramos_art, {'Riesgos del Trabajo': 'ART'}, tiene_resumen=False)
     
@@ -124,7 +124,7 @@ def crear_hoja_tipo(ws, data, ramos_disponibles, mapa_nombres, tiene_resumen=Tru
     
     # === CUADROS INDIVIDUALES POR RAMO ===
     for ramo in ramos_disponibles:
-        datos_ramo = data[data['ramo_denomincion'] == ramo].copy().sort_values('primas_emitidas', ascending=False)
+        datos_ramo = data[data['ramo_denominacion'] == ramo].copy().sort_values('primas_emitidas', ascending=False)
         nombre_ramo_excel = mapa_nombres[ramo]
         
         current_row = crear_cuadro_ramo(ws, datos_ramo, nombre_ramo_excel, current_row,
@@ -150,7 +150,7 @@ def crear_cuadro_resumen(ws, data, ramos_disponibles, mapa_nombres, start_row,
     
     # Datos por ramo
     for ramo in ramos_disponibles:
-        datos_ramo = data[data['ramo_denomincion'] == ramo]
+        datos_ramo = data[data['ramo_denominacion'] == ramo]
         nombre_excel = mapa_nombres[ramo]
         
         # Calcular totales del ramo
@@ -360,7 +360,7 @@ def calcular_total_general(data, ramos_disponibles):
     }
     
     for ramo in ramos_disponibles:
-        datos_ramo = data[data['ramo_denomincion'] == ramo]
+        datos_ramo = data[data['ramo_denominacion'] == ramo]
         totales_ramo = calcular_totales_ramo(datos_ramo)
         
         for key in total_general:

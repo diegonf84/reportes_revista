@@ -22,7 +22,7 @@ def create_excel_ranking_comparativo_completo(csv_path: str, output_path: str, p
     df['variacion'] = df['variacion'].astype(str).str.replace(',', '.').astype(float)
     
     # Filtrar tipos (excluir Retiro si existe)
-    tipos_incluir = ['ART', 'Generales', 'M.T.P.P.', 'Vida']
+    tipos_incluir = ['ART', 'Generales', 'M.T.P.P.', 'Vida','Retiro']
     tipos_disponibles = [tipo for tipo in df['tipo_cia'].unique() if tipo in tipos_incluir]
     
     # Crear workbook
@@ -186,7 +186,7 @@ def crear_hoja_ranking_total(ws, df):
     current_row += 1
     
     # Filtrar tipos (excluir Retiro si existe)
-    tipos_incluir = ['ART', 'Generales', 'M.T.P.P.', 'Vida']
+    tipos_incluir = ['ART', 'Generales', 'M.T.P.P.', 'Vida', 'Retiro']
     df_filtrado = df[df['tipo_cia'].isin(tipos_incluir)].copy()
     
     # Datos ordenados por primas emitidas descendente

@@ -26,8 +26,10 @@ from modules.check_ultimos_periodos import print_periods_info, list_available_pe
 from modules.carga_base_principal import main as load_data_main
 from modules.crea_tabla_ultimos_periodos import create_recent_periods_table
 from modules.crea_tabla_subramos import main as create_base_subramos_main
+from modules.crea_tabla_ramos import main as create_base_ramos_main
 from modules.crea_tabla_otros_conceptos import main as create_concepts_main
 from modules.crea_tabla_subramos_corregida import create_table_from_query, export_testing_data
+from modules.crea_tabla_ramos_corregida import create_ramos_table_from_query, export_ramos_testing_data
 from modules.file_utils import check_mdb_file_exists, list_available_mdb_files, get_file_status
 from modules.common import get_mdb_files_directory
 
@@ -371,15 +373,12 @@ def api_load_data():
 def api_create_recent_periods():
     """API endpoint para crear tabla de períodos recientes."""
     try:
-        data = request.get_json()
-        periodo_inicial = data.get('periodo_inicial')
-        
         log_capture = LogCapture()
         log_capture.start_capture()
         
         try:
-            # Llamar función del módulo
-            create_recent_periods_table(periodo_inicial)
+            # Llamar función del módulo (usa automáticamente los últimos 2 años)
+            create_recent_periods_table()
             
             logs = log_capture.get_logs()
             log_capture.stop_capture()
@@ -387,7 +386,7 @@ def api_create_recent_periods():
             return jsonify({
                 'success': True,
                 'logs': logs,
-                'message': 'Tabla de períodos recientes creada exitosamente'
+                'message': 'Tabla de períodos recientes creada exitosamente (usando automáticamente los últimos 2 años)'
             })
             
         except Exception as e:
@@ -407,17 +406,17 @@ def api_create_recent_periods():
 
 @data_processing_bp.route('/api/create-base-subramos', methods=['POST'])
 def api_create_base_subramos():
-    """API endpoint para crear tabla base de subramos."""
+    """API endpoint para crear tablas base de subramos y ramos."""
     try:
-        data = request.get_json()
-        periodo_inicial = data.get('periodo_inicial')
-        
         log_capture = LogCapture()
         log_capture.start_capture()
         
         try:
-            # Llamar función del módulo
-            create_base_subramos_main(periodo_inicial)
+            # Llamar función del módulo subramos (usa automáticamente los últimos 2 años)
+            create_base_subramos_main()
+            
+            # Llamar función del módulo ramos (usa automáticamente los últimos 2 años)
+            create_base_ramos_main()
             
             logs = log_capture.get_logs()
             log_capture.stop_capture()
@@ -425,7 +424,7 @@ def api_create_base_subramos():
             return jsonify({
                 'success': True,
                 'logs': logs,
-                'message': 'Tabla base de subramos creada exitosamente'
+                'message': 'Tablas base de subramos y ramos creadas exitosamente (usando automáticamente los últimos 2 años)'
             })
             
         except Exception as e:
@@ -480,7 +479,7 @@ def api_create_concepts():
 
 @data_processing_bp.route('/api/create-subramos', methods=['POST'])
 def api_create_subramos():
-    """API endpoint para crear tabla de subramos corregida."""
+    """API endpoint para crear tablas de subramos y ramos corregidas."""
     try:
         data = request.get_json()
         periodo = data.get('periodo')
@@ -491,13 +490,15 @@ def api_create_subramos():
         
         try:
             if testing_mode:
-                # Modo testing: exportar datos para verificación
+                # Modo testing: exportar datos para verificación de ambas tablas
                 export_testing_data(periodo)
-                message = f'Archivo de testing creado para período {periodo}. Revisa modules/testing_data/'
+                export_ramos_testing_data(periodo)
+                message = f'Archivos de testing creados para período {periodo}. Revisa modules/testing_data/'
             else:
-                # Modo producción: crear tabla
-                create_table_from_query(periodo)
-                message = f'Tabla de subramos corregida creada para período {periodo}'
+                # Modo producción: crear ambas tablas
+                create_table_from_query(periodo)  # Tabla de subramos corregida
+                create_ramos_table_from_query(periodo)  # Tabla de ramos corregida
+                message = f'Tablas de subramos y ramos corregidas creadas para período {periodo}'
             
             logs = log_capture.get_logs()
             log_capture.stop_capture()

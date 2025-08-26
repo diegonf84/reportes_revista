@@ -9,18 +9,12 @@ from typing import Optional
 from modules.common import validate_period, setup_logging
 from utils.db_manager import db_manager
 
-def create_recent_periods_table(periodo_inicial: Optional[int] = None) -> None:
+def create_recent_periods_table() -> None:
     """
     Crea una tabla con datos de balance de períodos desde una fecha específica.
     
     Esta función genera una nueva tabla 'base_balance_ultimos_periodos' con los datos
-    filtrados a partir del período especificado. Si no se especifica un período,
-    se utilizan los últimos 2 años por defecto.
-
-    Args:
-        periodo_inicial (Optional[int]): Período inicial desde el cual filtrar los datos,
-                                       en formato YYYYPP donde PP es el trimestre (01-04).
-                                       Si es None, se calculan los últimos 2 años.
+    filtrados automáticamente usando los últimos 2 años de datos disponibles.
     
     Returns:
         None
@@ -28,13 +22,10 @@ def create_recent_periods_table(periodo_inicial: Optional[int] = None) -> None:
     Raises:
         sqlite3.Error: Si ocurre un error en las operaciones de base de datos
     """
-    # Si no se especifica periodo, usar los últimos 2 años
-    if periodo_inicial is None:
-        import datetime
-        anio_actual = datetime.datetime.now().year
-        periodo_inicial = int(f"{anio_actual - 2}00")
-    else:
-        validate_period(periodo_inicial)
+    # Usar automáticamente los últimos 2 años
+    import datetime
+    anio_actual = datetime.datetime.now().year
+    periodo_inicial = int(f"{anio_actual - 2}00")
 
     logging.info(f"Filtrando datos desde el período: {periodo_inicial}")
 
@@ -59,20 +50,16 @@ if __name__ == "__main__":
     setup_logging()
     
     parser = argparse.ArgumentParser(
-        description='Crea tabla con datos de períodos recientes',
+        description='Crea tabla con datos de períodos recientes usando automáticamente los últimos 2 años',
         epilog="""
-Ejemplos:
-  python modules/crea_tabla_ultimos_periodos.py --periodo_inicial 202301
-  python modules/crea_tabla_ultimos_periodos.py  # Usa últimos 2 años por defecto
+Ejemplo:
+  python modules/crea_tabla_ultimos_periodos.py
+
+Este módulo usa automáticamente los últimos 2 años de datos para garantizar
+que todas las correcciones trimestrales tengan suficiente información histórica.
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
-    parser.add_argument(
-        '--periodo_inicial', 
-        type=int, 
-        help='Período inicial (formato YYYYPP) desde el cual filtrar los datos'
-    )
-    
     args = parser.parse_args()
-    create_recent_periods_table(args.periodo_inicial)
+    create_recent_periods_table()
