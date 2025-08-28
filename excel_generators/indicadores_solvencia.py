@@ -19,8 +19,7 @@ def create_excel_indicadores_solvencia(csv_path: str, output_path: str, period: 
     # Leer CSV
     df = pd.read_csv(csv_path)
     
-    # Filtrar solo tipo_cia = "Generales"
-    df = df[df['tipo_cia'] == 'Generales'].copy()
+    # No filtrar por tipo - incluir todos los tipos de compañía
     
     # Crear workbook
     wb = openpyxl.Workbook()
@@ -39,7 +38,7 @@ def create_excel_indicadores_solvencia(csv_path: str, output_path: str, period: 
     logging.info(f"Excel indicadores solvencia generado con hojas: Indicadores Solvencia, base_detalle en: {output_path}")
 
 def crear_hoja_principal_solvencia(ws, df):
-    """Crea la hoja principal 'Indicadores Solvencia' con ratios calculados"""
+    """Crea la hoja principal 'Indicadores Solvencia' con ratios calculados agrupados por tipo"""
     
     # Configurar hoja
     ws.sheet_view.showGridLines = False
@@ -49,6 +48,7 @@ def crear_hoja_principal_solvencia(ws, df):
     normal_font = Font(name="Arial", size=10)
     total_font = Font(name="Arial", size=10, bold=True)
     footnote_font = Font(name="Arial", size=10)
+    title_font = Font(name="Arial", size=10, bold=True, underline="single")
     
     center_alignment = Alignment(horizontal='center')
     center_vertical_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
@@ -59,98 +59,116 @@ def crear_hoja_principal_solvencia(ws, df):
         bottom=Side(style='thin')
     )
     
-    # Empezar en fila 3 como indica el usuario
-    current_row = 3
+    # Empezar en fila 2
+    current_row = 2
     
-    # Headers de columnas
+    # Headers de columnas (reutilizable para cada sección)
     headers = ["ENTIDAD", "Disp+Inv / Ds.c/aseg %", "Disp+Inv+Inm / Ds.c/aseg %"]
-    for col_idx, header in enumerate(headers, 1):  # Empezar en columna 1 (A)
-        cell = ws.cell(row=current_row, column=col_idx, value=header)
-        cell.font = header_font
-        cell.border = thin_border
-        cell.alignment = center_vertical_alignment
     
-    ws.row_dimensions[current_row].height = 27  # Height específico solicitado
-    current_row += 1
-    
-    # Datos ordenados alfabéticamente por nombre
-    datos_ordenados = df.sort_values('nombre_corto')
-    
-    # Lista para rastrear empresas con deudas = 0 (para footnote)
+    # Lista global para rastrear empresas con deudas = 0 (para footnote)
     empresas_sin_deudas = []
     
-    for _, row_data in datos_ordenados.iterrows():
-        # ENTIDAD en columna A
-        cell_entidad = ws.cell(row=current_row, column=1, value=row_data['nombre_corto'])
-        cell_entidad.font = normal_font
-        cell_entidad.border = thin_border
+    # Agrupar por tipo de compañía
+    tipos = sorted(df['tipo_cia'].unique())
+    
+    for tipo_idx, tipo in enumerate(tipos):
+        # Título del tipo (bold + underlined)
+        cell_titulo = ws.cell(row=current_row, column=1, value=tipo.upper())
+        cell_titulo.font = title_font
+        current_row += 1
         
-        # Calcular ratios o mostrar (*) si deudas = 0
-        disponibilidades = row_data['disponibilidades']
-        inversiones = row_data['inversiones']
-        inmuebles_inversion = row_data['inmuebles_inversion']
-        deudas_con_asegurados = row_data['deudas_con_asegurados']
+        # Línea en blanco después del título
+        current_row += 1
         
-        if deudas_con_asegurados == 0:
-            # Mostrar (*) cuando no hay deudas
-            empresas_sin_deudas.append(row_data['nombre_corto'])
+        # Headers para esta sección
+        for col_idx, header in enumerate(headers, 1):
+            cell = ws.cell(row=current_row, column=col_idx, value=header)
+            cell.font = header_font
+            cell.border = thin_border
+            cell.alignment = center_vertical_alignment
+        
+        ws.row_dimensions[current_row].height = 27
+        current_row += 1
+        
+        # Datos del tipo actual, ordenados alfabéticamente
+        datos_tipo = df[df['tipo_cia'] == tipo].sort_values('nombre_corto')
+        
+        for _, row_data in datos_tipo.iterrows():
+            # ENTIDAD en columna A
+            cell_entidad = ws.cell(row=current_row, column=1, value=row_data['nombre_corto'])
+            cell_entidad.font = normal_font
+            cell_entidad.border = thin_border
             
-            # Ratio 1: Disp+Inv / Ds.c/aseg %
-            cell_ratio1 = ws.cell(row=current_row, column=2, value="(*)")
-            cell_ratio1.font = normal_font
-            cell_ratio1.border = thin_border
-            cell_ratio1.alignment = center_alignment
+            # Calcular ratios o mostrar (*) si deudas = 0
+            disponibilidades = row_data['disponibilidades']
+            inversiones = row_data['inversiones']
+            inmuebles_inversion = row_data['inmuebles_inversion']
+            deudas_con_asegurados = row_data['deudas_con_asegurados']
             
-            # Ratio 2: Disp+Inv+Inm / Ds.c/aseg %
-            cell_ratio2 = ws.cell(row=current_row, column=3, value="(*)")
-            cell_ratio2.font = normal_font
-            cell_ratio2.border = thin_border
-            cell_ratio2.alignment = center_alignment
-        else:
-            # Calcular ratios normalmente
-            ratio1 = ((disponibilidades + inversiones) / deudas_con_asegurados) * 100
-            ratio2 = ((disponibilidades + inversiones + inmuebles_inversion) / deudas_con_asegurados) * 100
+            if deudas_con_asegurados == 0:
+                # Mostrar (*) cuando no hay deudas
+                empresas_sin_deudas.append(row_data['nombre_corto'])
+                
+                # Ratio 1: Disp+Inv / Ds.c/aseg %
+                cell_ratio1 = ws.cell(row=current_row, column=2, value="(*)")
+                cell_ratio1.font = normal_font
+                cell_ratio1.border = thin_border
+                cell_ratio1.alignment = center_alignment
+                
+                # Ratio 2: Disp+Inv+Inm / Ds.c/aseg %
+                cell_ratio2 = ws.cell(row=current_row, column=3, value="(*)")
+                cell_ratio2.font = normal_font
+                cell_ratio2.border = thin_border
+                cell_ratio2.alignment = center_alignment
+            else:
+                # Calcular ratios normalmente
+                ratio1 = ((disponibilidades + inversiones) / deudas_con_asegurados) * 100
+                ratio2 = ((disponibilidades + inversiones + inmuebles_inversion) / deudas_con_asegurados) * 100
+                
+                # Ratio 1: Disp+Inv / Ds.c/aseg %
+                cell_ratio1 = ws.cell(row=current_row, column=2, value=ratio1)
+                cell_ratio1.font = normal_font
+                cell_ratio1.border = thin_border
+                cell_ratio1.number_format = '#,##0.00'
+                cell_ratio1.alignment = center_alignment
+                
+                # Ratio 2: Disp+Inv+Inm / Ds.c/aseg %
+                cell_ratio2 = ws.cell(row=current_row, column=3, value=ratio2)
+                cell_ratio2.font = normal_font
+                cell_ratio2.border = thin_border
+                cell_ratio2.number_format = '#,##0.00'
+                cell_ratio2.alignment = center_alignment
             
-            # Ratio 1: Disp+Inv / Ds.c/aseg %
-            cell_ratio1 = ws.cell(row=current_row, column=2, value=ratio1)
-            cell_ratio1.font = normal_font
-            cell_ratio1.border = thin_border
-            cell_ratio1.number_format = '#,##0.00'
-            cell_ratio1.alignment = center_alignment
-            
-            # Ratio 2: Disp+Inv+Inm / Ds.c/aseg %
-            cell_ratio2 = ws.cell(row=current_row, column=3, value=ratio2)
-            cell_ratio2.font = normal_font
-            cell_ratio2.border = thin_border
-            cell_ratio2.number_format = '#,##0.00'
-            cell_ratio2.alignment = center_alignment
+            current_row += 1
+        
+        # Totales del tipo
+        totales_tipo = calcular_totales_solvencia(datos_tipo)
+        
+        cell_total = ws.cell(row=current_row, column=1, value=f"Total {tipo}")
+        cell_total.font = total_font
+        cell_total.border = thin_border
+        
+        # Total ratio 1
+        cell_total_ratio1 = ws.cell(row=current_row, column=2, value=totales_tipo['ratio1'])
+        cell_total_ratio1.font = total_font
+        cell_total_ratio1.border = thin_border
+        cell_total_ratio1.number_format = '#,##0.00'
+        cell_total_ratio1.alignment = center_alignment
+        
+        # Total ratio 2  
+        cell_total_ratio2 = ws.cell(row=current_row, column=3, value=totales_tipo['ratio2'])
+        cell_total_ratio2.font = total_font
+        cell_total_ratio2.border = thin_border
+        cell_total_ratio2.number_format = '#,##0.00'
+        cell_total_ratio2.alignment = center_alignment
         
         current_row += 1
+        
+        # Dos líneas en blanco después de cada tipo (excepto el último)
+        if tipo_idx < len(tipos) - 1:
+            current_row += 2
     
-    # Fila de totales
-    totales = calcular_totales_solvencia(df)
-    
-    cell_total = ws.cell(row=current_row, column=1, value="Total")
-    cell_total.font = total_font
-    cell_total.border = thin_border
-    
-    # Total ratio 1
-    cell_total_ratio1 = ws.cell(row=current_row, column=2, value=totales['ratio1'])
-    cell_total_ratio1.font = total_font
-    cell_total_ratio1.border = thin_border
-    cell_total_ratio1.number_format = '#,##0.00'
-    cell_total_ratio1.alignment = center_alignment
-    
-    # Total ratio 2  
-    cell_total_ratio2 = ws.cell(row=current_row, column=3, value=totales['ratio2'])
-    cell_total_ratio2.font = total_font
-    cell_total_ratio2.border = thin_border
-    cell_total_ratio2.number_format = '#,##0.00'
-    cell_total_ratio2.alignment = center_alignment
-    
-    current_row += 1
-    
-    # Agregar footnote si hay empresas sin deudas (2 filas después)
+    # Agregar footnote si hay empresas sin deudas (2 filas después del último total)
     if empresas_sin_deudas:
         current_row += 2
         cell_footnote = ws.cell(row=current_row, column=1, value="(*) No registra deudas con asegurados")
@@ -162,7 +180,7 @@ def crear_hoja_principal_solvencia(ws, df):
         ws.column_dimensions[get_column_letter(col_idx)].width = width
 
 def crear_hoja_detalle_solvencia(ws, df):
-    """Crea la hoja 'base_detalle' con toda la información de solvencia"""
+    """Crea la hoja 'base_detalle' con toda la información de solvencia agrupada por tipo"""
     
     # Configurar hoja
     ws.sheet_view.showGridLines = False
@@ -171,6 +189,7 @@ def crear_hoja_detalle_solvencia(ws, df):
     header_font = Font(name="Arial", size=10, bold=True)
     normal_font = Font(name="Arial", size=10)
     total_font = Font(name="Arial", size=10, bold=True)
+    title_font = Font(name="Arial", size=10, bold=True, underline="single")
     
     center_alignment = Alignment(horizontal='center')
     center_vertical_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
@@ -181,7 +200,7 @@ def crear_hoja_detalle_solvencia(ws, df):
         bottom=Side(style='thin')
     )
     
-    # Headers
+    # Headers (reutilizable para cada sección)
     headers = [
         "Tipo", "ENTIDAD", "Inmuebles Inv.", "Inversiones", "Disponibilidades",
         "Deudas c/Aseg.", "Ratio 1 %", "Ratio 2 %"
@@ -191,105 +210,124 @@ def crear_hoja_detalle_solvencia(ws, df):
         'disponibilidades', 'deudas_con_asegurados'
     ]
     
-    current_row = 1
+    # Empezar en fila 2
+    current_row = 2
     
-    # Headers
-    for col_idx, header in enumerate(headers, 1):
-        cell = ws.cell(row=current_row, column=col_idx, value=header)
-        cell.font = header_font
-        cell.border = thin_border
-        cell.alignment = center_vertical_alignment
+    # Agrupar por tipo de compañía
+    tipos = sorted(df['tipo_cia'].unique())
     
-    ws.row_dimensions[current_row].height = 27
-    current_row += 1
-    
-    # Datos ordenados por nombre
-    datos_ordenados = df.sort_values('nombre_corto')
-    
-    for _, row_data in datos_ordenados.iterrows():
-        # Columnas básicas
-        for col_idx, csv_col in enumerate(columns_map, 1):
-            value = row_data[csv_col]
+    for tipo_idx, tipo in enumerate(tipos):
+        # Título del tipo (bold + underlined)
+        cell_titulo = ws.cell(row=current_row, column=1, value=tipo.upper())
+        cell_titulo.font = title_font
+        current_row += 1
+        
+        # Línea en blanco después del título
+        current_row += 1
+        
+        # Headers para esta sección
+        for col_idx, header in enumerate(headers, 1):
+            cell = ws.cell(row=current_row, column=col_idx, value=header)
+            cell.font = header_font
+            cell.border = thin_border
+            cell.alignment = center_vertical_alignment
+        
+        ws.row_dimensions[current_row].height = 27
+        current_row += 1
+        
+        # Datos del tipo actual, ordenados alfabéticamente
+        datos_tipo = df[df['tipo_cia'] == tipo].sort_values('nombre_corto')
+        
+        for _, row_data in datos_tipo.iterrows():
+            # Columnas básicas
+            for col_idx, csv_col in enumerate(columns_map, 1):
+                value = row_data[csv_col]
+                
+                cell = ws.cell(row=current_row, column=col_idx, value=value)
+                cell.font = normal_font
+                cell.border = thin_border
+                
+                # Formatear según tipo de columna
+                if col_idx in [3, 4, 5, 6]:  # Montos
+                    cell.number_format = '#,##0,'
+                    cell.alignment = center_alignment
             
-            cell = ws.cell(row=current_row, column=col_idx, value=value)
-            cell.font = normal_font
+            # Calcular y agregar ratios
+            disponibilidades = row_data['disponibilidades']
+            inversiones = row_data['inversiones']
+            inmuebles_inversion = row_data['inmuebles_inversion']
+            deudas_con_asegurados = row_data['deudas_con_asegurados']
+            
+            if deudas_con_asegurados == 0:
+                # Ratio 1
+                cell_ratio1 = ws.cell(row=current_row, column=7, value="(*)")
+                cell_ratio1.font = normal_font
+                cell_ratio1.border = thin_border
+                cell_ratio1.alignment = center_alignment
+                
+                # Ratio 2
+                cell_ratio2 = ws.cell(row=current_row, column=8, value="(*)")
+                cell_ratio2.font = normal_font
+                cell_ratio2.border = thin_border
+                cell_ratio2.alignment = center_alignment
+            else:
+                ratio1 = ((disponibilidades + inversiones) / deudas_con_asegurados) * 100
+                ratio2 = ((disponibilidades + inversiones + inmuebles_inversion) / deudas_con_asegurados) * 100
+                
+                # Ratio 1
+                cell_ratio1 = ws.cell(row=current_row, column=7, value=ratio1)
+                cell_ratio1.font = normal_font
+                cell_ratio1.border = thin_border
+                cell_ratio1.number_format = '#,##0.00'
+                cell_ratio1.alignment = center_alignment
+                
+                # Ratio 2
+                cell_ratio2 = ws.cell(row=current_row, column=8, value=ratio2)
+                cell_ratio2.font = normal_font
+                cell_ratio2.border = thin_border
+                cell_ratio2.number_format = '#,##0.00'
+                cell_ratio2.alignment = center_alignment
+            
+            current_row += 1
+        
+        # Total del tipo
+        totales_tipo = calcular_totales_solvencia(datos_tipo)
+        
+        cell_total_tipo = ws.cell(row=current_row, column=1, value=f"TOTAL {tipo.upper()}")
+        cell_total_tipo.font = total_font
+        cell_total_tipo.border = thin_border
+        
+        cell_total_entidad = ws.cell(row=current_row, column=2, value="")
+        cell_total_entidad.font = total_font
+        cell_total_entidad.border = thin_border
+        
+        # Totales de montos para este tipo
+        valores_totales_tipo = [
+            totales_tipo['inmuebles_inversion'],
+            totales_tipo['inversiones'],
+            totales_tipo['disponibilidades'],
+            totales_tipo['deudas_con_asegurados'],
+            totales_tipo['ratio1'],
+            totales_tipo['ratio2']
+        ]
+        
+        for col_idx, valor in enumerate(valores_totales_tipo, 3):
+            cell = ws.cell(row=current_row, column=col_idx, value=valor)
+            cell.font = total_font
             cell.border = thin_border
             
-            # Formatear según tipo de columna
             if col_idx in [3, 4, 5, 6]:  # Montos
                 cell.number_format = '#,##0,'
-                cell.alignment = center_alignment
-        
-        # Calcular y agregar ratios
-        disponibilidades = row_data['disponibilidades']
-        inversiones = row_data['inversiones']
-        inmuebles_inversion = row_data['inmuebles_inversion']
-        deudas_con_asegurados = row_data['deudas_con_asegurados']
-        
-        if deudas_con_asegurados == 0:
-            # Ratio 1
-            cell_ratio1 = ws.cell(row=current_row, column=7, value="(*)")
-            cell_ratio1.font = normal_font
-            cell_ratio1.border = thin_border
-            cell_ratio1.alignment = center_alignment
+            elif col_idx in [7, 8]:  # Ratios
+                cell.number_format = '#,##0.00'
             
-            # Ratio 2
-            cell_ratio2 = ws.cell(row=current_row, column=8, value="(*)")
-            cell_ratio2.font = normal_font
-            cell_ratio2.border = thin_border
-            cell_ratio2.alignment = center_alignment
-        else:
-            ratio1 = ((disponibilidades + inversiones) / deudas_con_asegurados) * 100
-            ratio2 = ((disponibilidades + inversiones + inmuebles_inversion) / deudas_con_asegurados) * 100
-            
-            # Ratio 1
-            cell_ratio1 = ws.cell(row=current_row, column=7, value=ratio1)
-            cell_ratio1.font = normal_font
-            cell_ratio1.border = thin_border
-            cell_ratio1.number_format = '#,##0.00'
-            cell_ratio1.alignment = center_alignment
-            
-            # Ratio 2
-            cell_ratio2 = ws.cell(row=current_row, column=8, value=ratio2)
-            cell_ratio2.font = normal_font
-            cell_ratio2.border = thin_border
-            cell_ratio2.number_format = '#,##0.00'
-            cell_ratio2.alignment = center_alignment
+            cell.alignment = center_alignment
         
         current_row += 1
-    
-    # Total general
-    totales_generales = calcular_totales_solvencia(df)
-    
-    cell_total_tipo = ws.cell(row=current_row, column=1, value="TOTAL GENERAL")
-    cell_total_tipo.font = total_font
-    cell_total_tipo.border = thin_border
-    
-    cell_total_entidad = ws.cell(row=current_row, column=2, value="")
-    cell_total_entidad.font = total_font
-    cell_total_entidad.border = thin_border
-    
-    # Totales de montos
-    valores_totales = [
-        totales_generales['inmuebles_inversion'],
-        totales_generales['inversiones'],
-        totales_generales['disponibilidades'],
-        totales_generales['deudas_con_asegurados'],
-        totales_generales['ratio1'],
-        totales_generales['ratio2']
-    ]
-    
-    for col_idx, valor in enumerate(valores_totales, 3):
-        cell = ws.cell(row=current_row, column=col_idx, value=valor)
-        cell.font = total_font
-        cell.border = thin_border
         
-        if col_idx in [3, 4, 5, 6]:  # Montos
-            cell.number_format = '#,##0,'
-        elif col_idx in [7, 8]:  # Ratios
-            cell.number_format = '#,##0.00'
-        
-        cell.alignment = center_alignment
+        # Dos líneas en blanco después de cada tipo (excepto el último)
+        if tipo_idx < len(tipos) - 1:
+            current_row += 2
     
     # Ajustar anchos de columnas
     column_widths = [15, 37, 14, 14, 14, 14, 11, 14]
