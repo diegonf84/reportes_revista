@@ -1,10 +1,12 @@
 import pandas as pd
 import datetime
-
+import os
 import sqlite3
+from dotenv import load_dotenv
 
     
 def main():
+    load_dotenv()
     file_path = '/Users/diego.frigerio/Downloads/PARAMETROSREPORTES.txt'
 
     pm = pd.read_csv(file_path, sep=';')
@@ -25,9 +27,9 @@ def main():
 
     cd.rename(columns={'codigo_completo':'cod_cuenta'}, inplace=True)
 
-
+    database_path = os.getenv('DATABASE')
     # Crear conexión a la base de datos SQLite
-    conn = sqlite3.connect('../revista_tr_database.db')
+    conn = sqlite3.connect(database_path)
 
     # SQL para crear la tabla
     create_table_sql = '''

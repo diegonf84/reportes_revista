@@ -34,7 +34,7 @@ dependencies:
 
 ### **Updated .env file:**
 ```bash
-DATABASE='/Users/diegofrigerio/Personal/repositorios/revista_tr_database.db'
+DATABASE='../revista_tr_database.db'
 # NEW WEB VARIABLES
 FLASK_SECRET_KEY='your-secret-key-here'
 FLASK_PORT=5000

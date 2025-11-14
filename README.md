@@ -22,7 +22,7 @@ git clone https://github.com/diegonf84/reportes_revista
 2. Crear y activar entorno Conda:
 ```bash
 conda env create -f environment.yml
-conda activate nombre_entorno
+conda activate revista_tr_cuadros
 ```
 
 3. Instalar módulos locales:
@@ -68,7 +68,7 @@ pip install -e .
 │   ├── apertura_por_subramos.py
 │   ├── cuadro_principal.py
 │   ├── ranking_comparativo.py
-│   └── ... (8 generadores totales)
+│   └── ... (13 generadores totales)
 │
 ├── initial_scripts/              # Scripts de configuración inicial
 │   ├── create_conceptos_reportes.py
@@ -106,7 +106,7 @@ pip install -e .
 ### Configuración Inicial
 ```bash
 # 1. Configurar variables de entorno
-echo "DATABASE=/ruta/a/tu/base_datos.db" > .env
+echo "DATABASE=../revista_tr_database.db" > .env
 echo "FLASK_SECRET_KEY=tu-clave-secreta" >> .env
 echo "FLASK_PORT=5000" >> .env
 echo "FLASK_DEBUG=True" >> .env
@@ -210,7 +210,7 @@ Todos los módulos usan períodos en formato **YYYYPP**:
   - ✅ **Generación unificada de reportes** (CSV + Excel)
     - **Un solo paso**: Ingreso de período y generación automática de todos los reportes
     - **Progreso en tiempo real**: Seguimiento visual del proceso de generación
-    - **9 tipos de reportes**: Cuadro principal, ranking, apertura por subramo, etc.
+    - **12 tipos de reportes CSV**: Cuadro principal, ranking, apertura por subramo, etc.
     - **Archivos organizados**: CSV en ending_files/, Excel en excel_final_files/
   - ✅ **Interfaz responsive** con Bootstrap 5
   - ✅ **Búsqueda y filtrado** de compañías

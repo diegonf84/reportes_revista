@@ -12,7 +12,7 @@ def create_companies_table() -> None:
     """Crea tabla con datos de las compañías desde el CSV"""
     load_dotenv()
     database_path = os.getenv('DATABASE')
-    file_path = '/Users/diegofrigerio/Personal/repositorios/nombres_companias.csv'
+    file_path = '../nombres_companias.csv'
 
     try:
         # Leer el CSV
