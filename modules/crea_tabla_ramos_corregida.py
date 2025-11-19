@@ -23,8 +23,10 @@ LÓGICA POR TRIMESTRE:
      * Anterior: junio_anterior + diciembre_prev_prev - junio_prev_prev
 
 3. SEPTIEMBRE (Trimestre 3):
-   - Todas las compañías: septiembre actual vs septiembre anterior (directo)
-   - No hay correcciones especiales necesarias
+   - Compañías normales: septiembre actual vs septiembre anterior (directo)
+   - Compañías especiales: necesitan calcular 12 meses terminados en septiembre
+     * Actual: septiembre_actual - junio_actual
+     * Anterior: septiembre_anterior - junio_anterior
 
 4. DICIEMBRE (Trimestre 4):
    - Compañías normales: diciembre actual vs diciembre anterior (directo)
@@ -35,10 +37,11 @@ LÓGICA POR TRIMESTRE:
 EXPLICACIÓN DE LAS CORRECCIONES:
 Las compañías especiales reportan datos acumulados desde enero, por lo que:
 - Para obtener 12 meses terminados en marzo: sumamos enero-marzo + julio-diciembre anterior
-- Para obtener 12 meses terminados en junio: sumamos enero-junio + julio-diciembre anterior  
+- Para obtener 12 meses terminados en junio: sumamos enero-junio + julio-diciembre anterior
+- Para obtener 12 meses terminados en septiembre: tomamos enero-septiembre - enero-junio
 - Para obtener 12 meses terminados en diciembre: tomamos enero-diciembre - enero-junio
 
-Esto garantiza que todas las compañías reporten el mismo período de 12 meses, 
+Esto garantiza que todas las compañías reporten el mismo período de 12 meses,
 independientemente de su ciclo de cierre fiscal.
 
 DIFERENCIA CON SUBRAMOS:
@@ -94,13 +97,19 @@ def calculate_periods(periodo_actual: int) -> dict:
             'diciembre_prev_prev': int(f"{year-2}04"),    # Diciembre hace 2 años
             'junio_prev_prev': int(f"{year-2}02"),        # Junio hace 2 años
         })
+    # Para septiembre (trimestre 3), necesitamos datos de junio del mismo año
+    elif quarter == 3:
+        periods.update({
+            'junio_actual': int(f"{year}02"),        # Junio del mismo año
+            'junio_anterior': int(f"{year-1}02"),    # Junio del año anterior
+        })
     # Para diciembre (trimestre 4), necesitamos datos de junio del mismo año
     elif quarter == 4:
         periods.update({
             'junio_actual': int(f"{year}02"),        # Junio del mismo año
             'junio_anterior': int(f"{year-1}02"),    # Junio del año anterior
         })
-    
+
     return periods
 
 
@@ -368,29 +377,82 @@ def build_query_for_june(periods: dict) -> str:
     """
 
 
-def build_query_for_other_quarters(periods: dict) -> str:
-    """Construye query para trimestre 3 (septiembre)."""
+def build_query_for_september(periods: dict) -> str:
+    """Construye query para procesamiento de septiembre (trimestre 3)."""
     return f"""
     CREATE TABLE base_ramos_corregida_actual AS
-    with primas_actuales_todas as (
+    with primas_dif_sep_actual as (
+        select cod_cia, ramo_denominacion,
+        sum(primas_emitidas) as primas_emit_sep_actual
+        from base_ramos
+        where periodo in ('{periods["actual"]}')
+        and cod_cia in ('0829','0541','0686')
+        GROUP by cod_cia,ramo_denominacion
+    ),
+    primas_dif_jun_actual as (
+        select cod_cia, ramo_denominacion,
+        sum(primas_emitidas) as primas_emit_jun_actual
+        from base_ramos
+        where periodo in ('{periods["junio_actual"]}')
+        and cod_cia in ('0829','0541','0686')
+        GROUP by cod_cia,ramo_denominacion
+    ),
+    primas_dif_sep_anterior as (
+        select cod_cia, ramo_denominacion,
+        sum(primas_emitidas) as primas_emit_sep_anterior
+        from base_ramos
+        where periodo in ('{periods["anterior_mismo_trimestre"]}')
+        and cod_cia in ('0829','0541','0686')
+        GROUP by cod_cia,ramo_denominacion
+    ),
+    primas_dif_jun_anterior as (
+        select cod_cia, ramo_denominacion,
+        sum(primas_emitidas) as primas_emit_jun_anterior
+        from base_ramos
+        where periodo in ('{periods["junio_anterior"]}')
+        and cod_cia in ('0829','0541','0686')
+        GROUP by cod_cia,ramo_denominacion
+    ),
+    base_cias_diferentes as (
+        select a.cod_cia, a.ramo_denominacion,
+        a.primas_emit_sep_actual - b.primas_emit_jun_actual as primas_emitidas,
+        c.primas_emit_sep_anterior - d.primas_emit_jun_anterior as primas_emitidas_anterior
+        from primas_dif_sep_actual a
+        join primas_dif_jun_actual b on a.cod_cia = b.cod_cia and a.ramo_denominacion = b.ramo_denominacion
+        join primas_dif_sep_anterior c on a.cod_cia = c.cod_cia and a.ramo_denominacion = c.ramo_denominacion
+        join primas_dif_jun_anterior d on a.cod_cia = d.cod_cia and a.ramo_denominacion = d.ramo_denominacion
+    ),
+    primas_actuales_resto as (
         select cod_cia, ramo_denominacion,
         sum(primas_emitidas) as primas_emit_actual
         from base_ramos
         where periodo in ('{periods["actual"]}')
+        and cod_cia not in ('0829','0541','0686')
         GROUP by cod_cia,ramo_denominacion
     ),
-    primas_anteriores_todas as (
+    primas_anteriores_resto as (
         select cod_cia, ramo_denominacion,
         sum(primas_emitidas) as primas_emit_anterior
         from base_ramos
         where periodo in ('{periods["anterior_mismo_trimestre"]}')
+        and cod_cia not in ('0829','0541','0686')
         GROUP by cod_cia,ramo_denominacion
+    ),
+    base_cias_comunes as (
+        select a.cod_cia, a.ramo_denominacion, a.primas_emit_actual as primas_emitidas,
+        iif(b.primas_emit_anterior is null, 0, b.primas_emit_anterior) as primas_emitidas_anterior
+        from primas_actuales_resto a
+        left join primas_anteriores_resto b on a.cod_cia = b.cod_cia and a.ramo_denominacion = b.ramo_denominacion
+    ),
+    base_final as (
+        select *
+        from base_cias_comunes
+        union all
+        select *
+        from base_cias_diferentes
     )
-    select a.cod_cia, a.ramo_denominacion, a.primas_emit_actual as primas_emitidas, 
-    iif(b.primas_emit_anterior is null, 0, b.primas_emit_anterior) as primas_emitidas_anterior
-    from primas_actuales_todas a
-    left join primas_anteriores_todas b on a.cod_cia = b.cod_cia and a.ramo_denominacion = b.ramo_denominacion
-    where a.primas_emit_actual <> 0
+    select * from base_final
+    where primas_emitidas <> 0
     """
 
 
@@ -421,10 +483,12 @@ def create_ramos_table_from_query(periodo: int) -> None:
                 query = build_query_for_march(periods)
             elif quarter == 2:  # Junio
                 query = build_query_for_june(periods)
+            elif quarter == 3:  # Septiembre
+                query = build_query_for_september(periods)
             elif quarter == 4:  # Diciembre
                 query = build_query_for_december(periods)
-            else:  # Trimestre 3 (Septiembre)
-                query = build_query_for_other_quarters(periods)
+            else:
+                raise ValueError(f"Trimestre inválido: {quarter}")
             
             conn.execute(query)
             
@@ -525,17 +589,19 @@ def export_ramos_testing_data(periodo: int) -> None:
                                                 result_df.get('junio_prev_prev', 0))
                 result_df['formula'] = "actual_T2 + diciembre_anterior - junio_anterior"
                 
-            elif quarter == 4:  # Diciembre
-                result_df['calculo_actual'] = (result_df[f'actual_T{quarter}'] - 
+            elif quarter == 3:  # Septiembre
+                result_df['calculo_actual'] = (result_df[f'actual_T{quarter}'] -
                                               result_df.get('junio_actual', 0))
-                result_df['calculo_anterior'] = (result_df[f'anterior_T{quarter}'] - 
+                result_df['calculo_anterior'] = (result_df[f'anterior_T{quarter}'] -
+                                                result_df.get('junio_anterior', 0))
+                result_df['formula'] = "actual_T3 - junio_actual"
+
+            elif quarter == 4:  # Diciembre
+                result_df['calculo_actual'] = (result_df[f'actual_T{quarter}'] -
+                                              result_df.get('junio_actual', 0))
+                result_df['calculo_anterior'] = (result_df[f'anterior_T{quarter}'] -
                                                 result_df.get('junio_anterior', 0))
                 result_df['formula'] = "actual_T4 - junio_actual"
-                
-            else:  # Septiembre - sin corrección
-                result_df['calculo_actual'] = result_df[f'actual_T{quarter}']
-                result_df['calculo_anterior'] = result_df[f'anterior_T{quarter}']
-                result_df['formula'] = "directo (sin corrección)"
             
             # Agregar información adicional
             result_df['periodo_procesado'] = periodo
