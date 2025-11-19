@@ -51,11 +51,19 @@
                     
                     <div class="alert alert-info mb-3">
                         <i class="bi bi-info-circle"></i>
-                        <strong>Período automático:</strong> Este proceso utiliza automáticamente los últimos 2 años de datos para garantizar suficiente información histórica.
+                        <strong>Período automático:</strong> Utiliza los últimos 2 años desde el período de referencia. Deje vacío para usar el año actual.
                     </div>
-                    
+
                     <form id="recent-periods-form">
                         {{ recent_periods_form.hidden_tag() }}
+
+                        <div class="mb-3">
+                            <label for="recent_periods_periodo" class="form-label">Período de Referencia (Opcional)</label>
+                            <input type="text" class="form-control" id="recent_periods_periodo" name="periodo"
+                                   placeholder="Ej: 202503" maxlength="6">
+                            <div class="form-text">Formato: YYYYPP. Deje vacío para usar el año actual automáticamente.</div>
+                        </div>
+
                         <div class="d-grid">
                             {{ recent_periods_form.submit() }}
                         </div>
@@ -91,11 +99,19 @@
                     
                     <div class="alert alert-info mb-3">
                         <i class="bi bi-info-circle"></i>
-                        <strong>Período automático:</strong> Este proceso utiliza automáticamente los últimos 2 años de datos para garantizar suficiente información histórica.
+                        <strong>Período automático:</strong> Utiliza los últimos 2 años desde el período de referencia. Deje vacío para usar el año actual.
                     </div>
-                    
+
                     <form id="base-subramos-form">
                         {{ base_subramos_form.hidden_tag() }}
+
+                        <div class="mb-3">
+                            <label for="base_subramos_periodo" class="form-label">Período de Referencia (Opcional)</label>
+                            <input type="text" class="form-control" id="base_subramos_periodo" name="periodo"
+                                   placeholder="Ej: 202503" maxlength="6">
+                            <div class="form-text">Formato: YYYYPP. Deje vacío para usar el año actual automáticamente.</div>
+                        </div>
+
                         <div class="d-grid">
                             {{ base_subramos_form.submit() }}
                         </div>
@@ -128,9 +144,22 @@
                             • Y más...
                         </small>
                     </div>
-                    
+
+                    <div class="alert alert-info mb-3">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Período automático:</strong> Deje vacío para usar MAX(periodo) automáticamente.
+                    </div>
+
                     <form id="concepts-form">
                         {{ concepts_form.hidden_tag() }}
+
+                        <div class="mb-3">
+                            <label for="concepts_periodo" class="form-label">Período Específico (Opcional)</label>
+                            <input type="text" class="form-control" id="concepts_periodo" name="periodo"
+                                   placeholder="Ej: 202503" maxlength="6">
+                            <div class="form-text">Formato: YYYYPP. Deje vacío para usar MAX(periodo) automáticamente.</div>
+                        </div>
+
                         <div class="d-grid">
                             {{ concepts_form.submit() }}
                         </div>
@@ -399,24 +428,46 @@ document.addEventListener('DOMContentLoaded', function() {
     // Recent Periods Form
     document.getElementById('recent-periods-form').addEventListener('submit', function(e) {
         e.preventDefault();
-        
-        // No period data needed - uses automatic last 2 years
-        makeRequest('/data-processing/api/create-recent-periods', {}, 'Creación de tabla de períodos recientes');
+
+        const formData = new FormData(this);
+        const periodo = formData.get('periodo');
+
+        const requestData = {};
+        if (periodo && periodo.trim()) {
+            requestData.periodo = parseInt(periodo);
+        }
+
+        makeRequest('/data-processing/api/create-recent-periods', requestData, 'Creación de tabla de períodos recientes');
     });
 
     // Base Subramos Form
     document.getElementById('base-subramos-form').addEventListener('submit', function(e) {
         e.preventDefault();
-        
-        // No period data needed - uses automatic last 2 years
-        makeRequest('/data-processing/api/create-base-subramos', {}, 'Creación de tablas base de subramos y ramos');
+
+        const formData = new FormData(this);
+        const periodo = formData.get('periodo');
+
+        const requestData = {};
+        if (periodo && periodo.trim()) {
+            requestData.periodo = parseInt(periodo);
+        }
+
+        makeRequest('/data-processing/api/create-base-subramos', requestData, 'Creación de tablas base de subramos y ramos');
     });
 
     // Concepts Form
     document.getElementById('concepts-form').addEventListener('submit', function(e) {
         e.preventDefault();
-        
-        makeRequest('/data-processing/api/create-concepts', {}, 'Creación de tabla de conceptos financieros');
+
+        const formData = new FormData(this);
+        const periodo = formData.get('periodo');
+
+        const requestData = {};
+        if (periodo && periodo.trim()) {
+            requestData.periodo = parseInt(periodo);
+        }
+
+        makeRequest('/data-processing/api/create-concepts', requestData, 'Creación de tabla de conceptos financieros');
     });
 
     // Subramos Form

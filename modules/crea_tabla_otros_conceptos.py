@@ -4,31 +4,44 @@ import logging
 import os
 import argparse
 from dotenv import load_dotenv
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional
 from modules.common import setup_logging
 from utils.db_manager import db_manager
 
-def get_recent_data(conn: sqlite3.Connection) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def get_recent_data(conn: sqlite3.Connection, periodo_especifico: Optional[int] = None) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
-    Obtiene datos del último período disponible y parámetros de reportes para conceptos 
-    que no son por subramo.
-    
+    Obtiene datos del último período disponible (o período especificado) y parámetros
+    de reportes para conceptos que no son por subramo.
+
     Args:
         conn (sqlite3.Connection): Conexión a la base de datos
-        
+        periodo_especifico: Período específico a usar (formato YYYYPP).
+                          Si es None, usa MAX(periodo).
+
     Returns:
-        Tuple[pd.DataFrame, pd.DataFrame]: Tupla con (datos base del último período, 
+        Tuple[pd.DataFrame, pd.DataFrame]: Tupla con (datos base del período,
                                           parámetros de reportes filtrados)
     """
-    query = """
-    SELECT * 
-    FROM base_balance_ultimos_periodos 
-    WHERE periodo = (
-        SELECT MAX(periodo) 
+    if periodo_especifico is None:
+        # DEFAULT: Usar MAX(periodo)
+        query = """
+        SELECT *
         FROM base_balance_ultimos_periodos
-    )
-    """
-   
+        WHERE periodo = (
+            SELECT MAX(periodo)
+            FROM base_balance_ultimos_periodos
+        )
+        """
+        logging.info("Modo automático: usando MAX(periodo) de la base de datos")
+    else:
+        # SPECIFIED: Usar período especificado
+        query = f"""
+        SELECT *
+        FROM base_balance_ultimos_periodos
+        WHERE periodo = {periodo_especifico}
+        """
+        logging.info(f"Modo manual: usando período especificado = {periodo_especifico}")
+
     base = pd.read_sql_query(query, conn)
     filtro = pd.read_sql_query("SELECT * FROM conceptos_reportes WHERE es_subramo is FALSE", conn)
     params_full = pd.read_sql_query("SELECT * FROM parametros_reportes", conn)
@@ -76,21 +89,25 @@ def generate_conceptos_table(data: pd.DataFrame, codigos: Dict[str, Dict[str, in
         patrimonio_neto=('patrimonio_neto', 'sum'),
     )
 
-def main() -> None:
+def main(periodo_referencia: Optional[int] = None) -> None:
     """
     Función principal que crea una tabla con conceptos financieros agregados
-    del último período disponible en la base de datos.
-    
+    del último período disponible (o período especificado) en la base de datos.
+
     La tabla resultante 'base_otros_conceptos' contiene información financiera
-    como resultado técnico, financiero, operaciones, impuestos, deudas, 
+    como resultado técnico, financiero, operaciones, impuestos, deudas,
     disponibilidades, inversiones y patrimonio neto, agregados por compañía.
-    
+
+    Args:
+        periodo_referencia: Período de referencia (formato YYYYPP).
+                          Si es None, usa MAX(periodo) de la base de datos.
+
     Raises:
         sqlite3.Error: Si ocurre un error en las operaciones con la base de datos
     """
     try:
         with db_manager.get_connection() as conn:
-            base, parametros_reportes = get_recent_data(conn)
+            base, parametros_reportes = get_recent_data(conn, periodo_referencia)
             
             codigos_map = {
                 concepto: dict(zip(
@@ -115,15 +132,21 @@ def main() -> None:
 
 if __name__ == "__main__":
     setup_logging()
-    
+
     parser = argparse.ArgumentParser(
-        description='Crea tabla con conceptos financieros agregados del último período',
+        description='Crea tabla con conceptos financieros agregados',
         epilog="""
 Ejemplos:
   python modules/crea_tabla_otros_conceptos.py
+    (Usa automáticamente MAX(periodo) de la base de datos)
+
+  python modules/crea_tabla_otros_conceptos.py --periodo 202503
+    (Usa específicamente el período 202503)
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    
+
+    parser.add_argument('--periodo', type=int, help='Período específico (formato YYYYPP). Si no se especifica, usa MAX(periodo).')
+
     args = parser.parse_args()
-    main()
+    main(args.periodo)

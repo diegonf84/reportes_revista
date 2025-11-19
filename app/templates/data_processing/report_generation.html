@@ -170,6 +170,60 @@
         </div>
     </div>
 
+    <!-- CSV Comparison Section -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-file-diff"></i> Comparación de Archivos CSV entre Períodos
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">
+                        Compare los archivos CSV entre dos períodos para identificar compañías nuevas o faltantes en cada reporte.
+                    </p>
+
+                    <form id="csv-comparison-form">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="periodo_actual" class="form-label fw-bold">Período Actual</label>
+                                <input type="text" class="form-control" id="periodo_actual" name="periodo_actual"
+                                       placeholder="202504" maxlength="6" required>
+                                <div class="form-text">Formato: YYYYPP (ej: 202504)</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="periodo_anterior" class="form-label fw-bold">Período Anterior</label>
+                                <input type="text" class="form-control" id="periodo_anterior" name="periodo_anterior"
+                                       placeholder="202503" maxlength="6" required>
+                                <div class="form-text">Formato: YYYYPP (ej: 202503)</div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-info">
+                                <i class="bi bi-play-circle"></i> Comparar Archivos CSV
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Comparison Status -->
+                    <div id="comparison-progress-container" class="d-none mt-3">
+                        <div class="d-flex align-items-center mb-2">
+                            <div class="spinner-border text-info me-2" role="status">
+                                <span class="visually-hidden">Comparando archivos...</span>
+                            </div>
+                            <span id="comparison-progress-text">Comparando archivos CSV...</span>
+                        </div>
+                    </div>
+
+                    <!-- Comparison Results -->
+                    <div id="comparison-results-container" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Technical Information -->
     <div class="row mt-4">
         <div class="col-12">
@@ -385,6 +439,258 @@ document.addEventListener('DOMContentLoaded', function() {
             
             hideProgress();
             displayError('Error de conexión: ' + error.message);
+            showAlert('danger', 'Error de conexión con el servidor');
+        });
+    });
+
+    // ========================================
+    // CSV Comparison Form Handling
+    // ========================================
+    const comparisonForm = document.getElementById('csv-comparison-form');
+    const comparisonProgressContainer = document.getElementById('comparison-progress-container');
+    const comparisonProgressText = document.getElementById('comparison-progress-text');
+    const comparisonResultsContainer = document.getElementById('comparison-results-container');
+
+    function showComparisonProgress(message) {
+        comparisonProgressText.textContent = message;
+        comparisonProgressContainer.classList.remove('d-none');
+    }
+
+    function hideComparisonProgress() {
+        comparisonProgressContainer.classList.add('d-none');
+    }
+
+    function displayComparisonResults(data) {
+        hideComparisonProgress();
+
+        let html = `<div class="alert alert-success">
+            <h6><i class="bi bi-check-circle"></i> Comparación Completada</h6>
+            <p class="mb-0">${escapeHtml(data.message)}</p>
+            <small class="text-muted">Reporte guardado en: <code>${escapeHtml(data.report_path)}</code></small>
+        </div>`;
+
+        // Summary
+        const summary = data.summary;
+        html += `<div class="row mb-3">
+            <div class="col-md-3">
+                <div class="card bg-light text-center">
+                    <div class="card-body">
+                        <h3 class="text-primary mb-0">${summary.total_compared}</h3>
+                        <small class="text-muted">Archivos Comparados</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-light text-center">
+                    <div class="card-body">
+                        <h3 class="text-warning mb-0">${summary.files_with_differences}</h3>
+                        <small class="text-muted">Con Diferencias</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-light text-center">
+                    <div class="card-body">
+                        <h3 class="text-success mb-0">${summary.only_in_actual.length}</h3>
+                        <small class="text-muted">Solo en Actual</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-light text-center">
+                    <div class="card-body">
+                        <h3 class="text-danger mb-0">${summary.only_in_previous.length}</h3>
+                        <small class="text-muted">Solo en Anterior</small>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+
+        // Files only in one period
+        if (summary.only_in_actual.length > 0 || summary.only_in_previous.length > 0) {
+            html += `<div class="alert alert-warning">
+                <h6><i class="bi bi-exclamation-triangle"></i> Archivos Presentes en un Solo Período</h6>`;
+
+            if (summary.only_in_actual.length > 0) {
+                html += `<div class="mb-2"><strong>Solo en período actual:</strong><br>`;
+                summary.only_in_actual.forEach(file => {
+                    html += `<small>• ${escapeHtml(file)}</small><br>`;
+                });
+                html += `</div>`;
+            }
+
+            if (summary.only_in_previous.length > 0) {
+                html += `<div><strong>Solo en período anterior:</strong><br>`;
+                summary.only_in_previous.forEach(file => {
+                    html += `<small>• ${escapeHtml(file)}</small><br>`;
+                });
+                html += `</div>`;
+            }
+
+            html += `</div>`;
+        }
+
+        // Detailed comparisons
+        if (data.results.comparisons && data.results.comparisons.length > 0) {
+            html += `<div class="accordion" id="comparisonAccordion">`;
+
+            data.results.comparisons.forEach((comp, index) => {
+                const hasChanges = comp.count_new > 0 || comp.count_missing > 0;
+                const headerClass = hasChanges ? 'bg-light' : 'bg-white';
+                const badgeClass = hasChanges ? 'bg-warning' : 'bg-success';
+                const badgeText = hasChanges ? 'Con cambios' : 'Sin cambios';
+
+                html += `
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="heading${index}">
+                        <button class="accordion-button ${index === 0 ? '' : 'collapsed'} ${headerClass}" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#collapse${index}">
+                            <div class="d-flex w-100 justify-content-between align-items-center pe-3">
+                                <span>${escapeHtml(comp.file_name)}</span>
+                                <span class="badge ${badgeClass}">${badgeText}</span>
+                            </div>
+                        </button>
+                    </h2>
+                    <div id="collapse${index}" class="accordion-collapse collapse ${index === 0 ? 'show' : ''}"
+                         data-bs-parent="#comparisonAccordion">
+                        <div class="accordion-body">
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <strong>Total Actual:</strong> ${comp.total_actual} compañías
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>Total Anterior:</strong> ${comp.total_previous} compañías
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>Cambios:</strong> +${comp.count_new} / -${comp.count_missing}
+                                </div>
+                            </div>`;
+
+                if (comp.new_companies && comp.new_companies.length > 0) {
+                    html += `<div class="mb-3">
+                        <h6 class="text-success"><i class="bi bi-plus-circle"></i> Compañías Nuevas (${comp.count_new})</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped">
+                                <thead><tr><th>Código</th><th>Denominación</th></tr></thead>
+                                <tbody>`;
+                    comp.new_companies.forEach(company => {
+                        html += `<tr><td>${escapeHtml(String(company.cod_cia))}</td><td>${escapeHtml(company.nombre_corto)}</td></tr>`;
+                    });
+                    html += `</tbody></table></div></div>`;
+                }
+
+                if (comp.missing_companies && comp.missing_companies.length > 0) {
+                    html += `<div class="mb-3">
+                        <h6 class="text-danger"><i class="bi bi-dash-circle"></i> Compañías Faltantes (${comp.count_missing})</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped">
+                                <thead><tr><th>Código</th><th>Denominación</th></tr></thead>
+                                <tbody>`;
+                    comp.missing_companies.forEach(company => {
+                        html += `<tr><td>${escapeHtml(String(company.cod_cia))}</td><td>${escapeHtml(company.nombre_corto)}</td></tr>`;
+                    });
+                    html += `</tbody></table></div></div>`;
+                }
+
+                if (!hasChanges) {
+                    html += `<p class="text-muted mb-0"><i class="bi bi-check-circle"></i> No hay diferencias entre períodos</p>`;
+                }
+
+                html += `</div></div></div>`;
+            });
+
+            html += `</div>`;
+        }
+
+        comparisonResultsContainer.innerHTML = html;
+    }
+
+    function displayComparisonError(error, logs = []) {
+        hideComparisonProgress();
+
+        let html = `<div class="alert alert-danger">
+            <h6><i class="bi bi-exclamation-triangle"></i> Error en la Comparación</h6>
+            <p class="mb-0">${escapeHtml(error)}</p>
+        </div>`;
+
+        if (logs && logs.length > 0) {
+            html += `<div class="mt-2">
+                <h6>Detalles:</h6>
+                <div class="bg-dark text-light p-3 rounded" style="font-family: 'Courier New', monospace; font-size: 0.9rem;">`;
+
+            logs.forEach(log => {
+                if (log.trim()) {
+                    html += `<div class="text-danger">${escapeHtml(log)}</div>`;
+                }
+            });
+
+            html += `</div></div>`;
+        }
+
+        comparisonResultsContainer.innerHTML = html;
+    }
+
+    // CSV Comparison form submission
+    comparisonForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const formData = new FormData(this);
+        const periodoActual = formData.get('periodo_actual');
+        const periodoAnterior = formData.get('periodo_anterior');
+
+        if (!periodoActual || !periodoAnterior) {
+            showAlert('warning', 'Ambos períodos son requeridos');
+            return;
+        }
+
+        // Validate period formats
+        if (!/^\d{6}$/.test(periodoActual) || !/^\d{6}$/.test(periodoAnterior)) {
+            showAlert('warning', 'Los períodos deben tener formato YYYYPP (6 dígitos)');
+            return;
+        }
+
+        // Clear previous results
+        comparisonResultsContainer.innerHTML = '';
+
+        // Start process
+        showComparisonProgress('Comparando archivos CSV entre períodos...');
+
+        // Disable form during processing
+        const submitButton = comparisonForm.querySelector('button[type="submit"]');
+        const inputs = comparisonForm.querySelectorAll('input');
+        submitButton.disabled = true;
+        inputs.forEach(input => input.disabled = true);
+
+        fetch('/data-processing/api/compare-csv-reports', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                periodo_actual: periodoActual,
+                periodo_anterior: periodoAnterior
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Re-enable form
+            submitButton.disabled = false;
+            inputs.forEach(input => input.disabled = false);
+
+            if (data.success) {
+                displayComparisonResults(data);
+                showAlert('success', '¡Comparación completada exitosamente!');
+            } else {
+                displayComparisonError(data.error, data.logs);
+                showAlert('danger', 'Error en la comparación de archivos');
+            }
+        })
+        .catch(error => {
+            // Re-enable form
+            submitButton.disabled = false;
+            inputs.forEach(input => input.disabled = false);
+
+            displayComparisonError('Error de conexión: ' + error.message);
             showAlert('danger', 'Error de conexión con el servidor');
         });
     });

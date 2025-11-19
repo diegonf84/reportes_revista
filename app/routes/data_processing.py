@@ -32,6 +32,7 @@ from modules.crea_tabla_subramos_corregida import create_table_from_query, expor
 from modules.crea_tabla_ramos_corregida import create_ramos_table_from_query, export_ramos_testing_data
 from modules.file_utils import check_mdb_file_exists, list_available_mdb_files, get_file_status
 from modules.common import get_mdb_files_directory
+from modules.compare_csv_reports import compare_all_csv_reports, generate_comparison_report
 
 data_processing_bp = Blueprint('data_processing', __name__)
 
@@ -373,20 +374,28 @@ def api_load_data():
 def api_create_recent_periods():
     """API endpoint para crear tabla de períodos recientes."""
     try:
+        data = request.get_json()
+        periodo_referencia = data.get('periodo') if data else None
+
         log_capture = LogCapture()
         log_capture.start_capture()
-        
+
         try:
-            # Llamar función del módulo (usa automáticamente los últimos 2 años)
-            create_recent_periods_table()
-            
+            # Llamar función del módulo
+            create_recent_periods_table(periodo_referencia)
+
             logs = log_capture.get_logs()
             log_capture.stop_capture()
-            
+
+            if periodo_referencia:
+                message = f'Tabla de períodos recientes creada para período de referencia {periodo_referencia}'
+            else:
+                message = 'Tabla de períodos recientes creada (usando automáticamente el año actual)'
+
             return jsonify({
                 'success': True,
                 'logs': logs,
-                'message': 'Tabla de períodos recientes creada exitosamente (usando automáticamente los últimos 2 años)'
+                'message': message
             })
             
         except Exception as e:
@@ -408,23 +417,31 @@ def api_create_recent_periods():
 def api_create_base_subramos():
     """API endpoint para crear tablas base de subramos y ramos."""
     try:
+        data = request.get_json()
+        periodo_referencia = data.get('periodo') if data else None
+
         log_capture = LogCapture()
         log_capture.start_capture()
-        
+
         try:
-            # Llamar función del módulo subramos (usa automáticamente los últimos 2 años)
-            create_base_subramos_main()
-            
-            # Llamar función del módulo ramos (usa automáticamente los últimos 2 años)
-            create_base_ramos_main()
-            
+            # Llamar función del módulo subramos
+            create_base_subramos_main(periodo_referencia)
+
+            # Llamar función del módulo ramos
+            create_base_ramos_main(periodo_referencia)
+
             logs = log_capture.get_logs()
             log_capture.stop_capture()
-            
+
+            if periodo_referencia:
+                message = f'Tablas base de subramos y ramos creadas para período de referencia {periodo_referencia}'
+            else:
+                message = 'Tablas base de subramos y ramos creadas (usando automáticamente el año actual)'
+
             return jsonify({
                 'success': True,
                 'logs': logs,
-                'message': 'Tablas base de subramos y ramos creadas exitosamente (usando automáticamente los últimos 2 años)'
+                'message': message
             })
             
         except Exception as e:
@@ -446,20 +463,28 @@ def api_create_base_subramos():
 def api_create_concepts():
     """API endpoint para crear tabla de conceptos financieros."""
     try:
+        data = request.get_json()
+        periodo_referencia = data.get('periodo') if data else None
+
         log_capture = LogCapture()
         log_capture.start_capture()
-        
+
         try:
             # Llamar función del módulo
-            create_concepts_main()
-            
+            create_concepts_main(periodo_referencia)
+
             logs = log_capture.get_logs()
             log_capture.stop_capture()
-            
+
+            if periodo_referencia:
+                message = f'Tabla de conceptos financieros creada para período {periodo_referencia}'
+            else:
+                message = 'Tabla de conceptos financieros creada (usando MAX(periodo) automáticamente)'
+
             return jsonify({
                 'success': True,
                 'logs': logs,
-                'message': 'Tabla de conceptos financieros creada exitosamente'
+                'message': message
             })
             
         except Exception as e:
@@ -628,6 +653,86 @@ def api_generate_all_reports():
             'success': False,
             'error': f'Error inesperado: {str(e)}'
         }), 500
+
+
+@data_processing_bp.route('/api/compare-csv-reports', methods=['POST'])
+def api_compare_csv_reports():
+    """API endpoint para comparar archivos CSV entre dos períodos."""
+    try:
+        data = request.get_json()
+        periodo_actual = data.get('periodo_actual')
+        periodo_anterior = data.get('periodo_anterior')
+
+        if not periodo_actual or not periodo_anterior:
+            return jsonify({
+                'success': False,
+                'error': 'Se requieren ambos períodos (actual y anterior)'
+            }), 400
+
+        # Validar formato de períodos
+        for periodo in [periodo_actual, periodo_anterior]:
+            if len(str(periodo)) != 6:
+                return jsonify({
+                    'success': False,
+                    'error': 'Los períodos deben tener formato YYYYPP (6 dígitos)'
+                }), 400
+
+        logs = []
+
+        try:
+            # Ejecutar comparación
+            logs.append(f"Comparando período {periodo_actual} vs {periodo_anterior}...")
+
+            # Obtener directorio base del proyecto
+            base_dir = os.path.join(project_root, "ending_files")
+
+            results = compare_all_csv_reports(periodo_actual, periodo_anterior, base_dir)
+
+            logs.append(f"Archivos comparados: {results['total_compared']}")
+
+            # Generar reporte TXT
+            output_path = os.path.join(base_dir, f"csv_comparison_{periodo_actual}_{periodo_anterior}.txt")
+            generate_comparison_report(results, Path(output_path))
+
+            logs.append(f"Reporte guardado en: {output_path}")
+
+            # Preparar resumen para respuesta
+            summary = {
+                'total_compared': results['total_compared'],
+                'only_in_actual': results['only_in_actual'],
+                'only_in_previous': results['only_in_previous'],
+                'files_with_differences': sum(1 for c in results['comparisons']
+                                             if c['count_new'] > 0 or c['count_missing'] > 0)
+            }
+
+            return jsonify({
+                'success': True,
+                'logs': logs,
+                'message': f'Comparación completada. Reporte guardado en ending_files/',
+                'summary': summary,
+                'report_path': output_path,
+                'results': results
+            })
+
+        except FileNotFoundError as e:
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'logs': logs
+            }), 404
+
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': f'Error durante la comparación: {str(e)}',
+                'logs': logs
+            }), 500
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error en la solicitud: {str(e)}'
+        }), 400
 
 
 # Helper functions for conceptos management

@@ -176,27 +176,40 @@ def generate_ramos_table(data: pd.DataFrame, codigos: Dict[str, Dict[str, int]])
     return aggregated
 
 
-def main() -> None:
+def main(periodo_referencia: Optional[int] = None) -> None:
     """
     Crea tabla base_ramos con información agregada por ramos.
-    
+
     Esta función agrupa los datos por compañía, período y ramo_denominacion, calculando
     diferentes métricas como primas emitidas, primas devengadas, siniestros
     devengados, gastos totales devengados y primas cedidas.
-    
-    Usa automáticamente los últimos 2 años de datos para garantizar
+
+    Usa los últimos 2 años desde el período de referencia para garantizar
     suficiente información histórica para las correcciones trimestrales.
+
+    Args:
+        periodo_referencia: Período de referencia (formato YYYYPP).
+                          Si es None, usa el año actual.
     """
     load_dotenv()
     database_path = os.getenv('DATABASE')
-    
+
     if not database_path:
         raise ValueError("DATABASE environment variable not set")
 
-    # Usar automáticamente los últimos 2 años
+    # Determinar período inicial (2 años atrás desde la referencia)
     import datetime
-    anio_actual = datetime.datetime.now().year
-    periodo_inicial = int(f"{anio_actual - 2}00")
+
+    if periodo_referencia is None:
+        # DEFAULT: Usar año actual
+        anio_actual = datetime.datetime.now().year
+        periodo_inicial = int(f"{anio_actual - 2}00")
+        logger.info(f"Modo automático: usando período de referencia = año actual ({anio_actual})")
+    else:
+        # SPECIFIED: Usar período especificado
+        year = int(str(periodo_referencia)[:4])
+        periodo_inicial = int(f"{year - 2}00")
+        logger.info(f"Modo manual: usando período de referencia = {periodo_referencia}")
 
     logger.info(f"Creating base_ramos table with data from period: {periodo_inicial}")
     logger.info(f"Database: {database_path}")
@@ -249,12 +262,16 @@ def main() -> None:
 
 if __name__ == "__main__":
     setup_logging()
-    
+
     parser = argparse.ArgumentParser(
-        description='Create base_ramos table with aggregated insurance data by ramo using automatic period detection',
+        description='Create base_ramos table with aggregated insurance data by ramo',
         epilog="""
-Example:
+Examples:
   python modules/crea_tabla_ramos.py
+    (Uses current year as reference automatically)
+
+  python modules/crea_tabla_ramos.py --periodo 202503
+    (Uses 202503 as reference, filters from 202303)
 
 Prerequisites:
   1. Run crea_tabla_ultimos_periodos.py first
@@ -263,11 +280,13 @@ Prerequisites:
 
 Output:
   Creates base_ramos table with aggregated data by cod_cia, periodo, ramo_denominacion
-  Uses automatic period detection (last 2 years) to ensure sufficient historical data
+  Uses last 2 years from reference period to ensure sufficient historical data
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    
+
+    parser.add_argument('--periodo', type=int, help='Reference period (format YYYYPP). If not specified, uses current year.')
+
     args = parser.parse_args()
-    
-    main()
+
+    main(args.periodo)
