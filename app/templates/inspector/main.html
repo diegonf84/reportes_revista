@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+
+{% block title %}Inspector - Primas Emitidas{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-3">
+                <i class="bi bi-search"></i> Inspector de Datos - Primas Emitidas
+            </h2>
+            <p class="text-muted">
+                Muestra el detalle a nivel de cuenta contable desde la tabla original <code>datos_balance</code>
+            </p>
+        </div>
+    </div>
+
+    <!-- Simple Form -->
+    <div class="row mt-4">
+        <div class="col-lg-8 offset-lg-2">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-funnel"></i> Parámetros de Búsqueda</h5>
+                </div>
+                <div class="card-body">
+                    <form id="inspector-form">
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="cod-cia" class="form-label fw-bold">
+                                    Código de Compañía
+                                </label>
+                                <input type="text" class="form-control" id="cod-cia"
+                                       placeholder="Ej: 0010" maxlength="4" required>
+                                <div class="form-text">Código de 4 dígitos</div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="periodo-from" class="form-label fw-bold">
+                                    Período Desde
+                                </label>
+                                <input type="text" class="form-control" id="periodo-from"
+                                       placeholder="202401" maxlength="6" required>
+                                <div class="form-text">Formato: YYYYPP</div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="periodo-to" class="form-label fw-bold">
+                                    Período Hasta
+                                </label>
+                                <input type="text" class="form-control" id="periodo-to"
+                                       placeholder="202404" maxlength="6" required>
+                                <div class="form-text">Formato: YYYYPP</div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-12 text-end">
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="bi bi-search"></i> Inspeccionar
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="row mt-4" style="display: none;">
+        <div class="col-12 text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-2">Consultando datos...</p>
+        </div>
+    </div>
+
+    <!-- Results Section -->
+    <div id="results-section" class="row mt-4" style="display: none;">
+        <!-- Summary -->
+        <div class="col-12 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-graph-up"></i> Resumen por Período
+                        <span id="company-info" class="ms-2"></span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table id="summary-table" class="table table-striped table-sm">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Período</th>
+                                    <th class="text-end">Total Primas Emitidas</th>
+                                </tr>
+                            </thead>
+                            <tbody id="summary-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detail -->
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-table"></i> Detalle por Cuenta Contable
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table id="detail-table" class="table table-striped table-hover table-sm">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Período</th>
+                                    <th>Subramo</th>
+                                    <th>Denominación</th>
+                                    <th>Cuenta</th>
+                                    <th class="text-end">Importe</th>
+                                    <th class="text-center">Signo</th>
+                                    <th class="text-end">Valor</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detail-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- No Results -->
+    <div id="no-results" class="row mt-4" style="display: none;">
+        <div class="col-lg-8 offset-lg-2">
+            <div class="alert alert-warning" role="alert">
+                <i class="bi bi-exclamation-triangle"></i>
+                <span id="no-results-message">No se encontraron datos.</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('inspector-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    let codCia = document.getElementById('cod-cia').value.trim();
+    const periodoFrom = document.getElementById('periodo-from').value.trim();
+    const periodoTo = document.getElementById('periodo-to').value.trim();
+
+    // Validate
+    if (!codCia || !periodoFrom || !periodoTo) {
+        alert('Por favor completa todos los campos');
+        return;
+    }
+
+    // Pad company code to 4 digits with leading zeros
+    codCia = codCia.padStart(4, '0');
+
+    if (parseInt(periodoFrom) > parseInt(periodoTo)) {
+        alert('El período inicial debe ser menor o igual al período final');
+        return;
+    }
+
+    // Show loading
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('results-section').style.display = 'none';
+    document.getElementById('no-results').style.display = 'none';
+
+    // Make request
+    fetch('/inspector/api/inspect', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            cod_cia: codCia,
+            periodo_from: parseInt(periodoFrom),
+            periodo_to: parseInt(periodoTo)
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        document.getElementById('loading').style.display = 'none';
+
+        console.log('Response data:', data);  // Debug log
+
+        if (data.success) {
+            if (!data.detail || data.detail.length === 0) {
+                const noResultsMsg = document.getElementById('no-results-message');
+                if (noResultsMsg) {
+                    noResultsMsg.textContent = data.message || 'No se encontraron datos.';
+                }
+                const noResultsDiv = document.getElementById('no-results');
+                if (noResultsDiv) {
+                    noResultsDiv.style.display = 'block';
+                }
+            } else {
+                displayResults(data);
+            }
+        } else {
+            alert('Error: ' + (data.error || 'Error desconocido'));
+        }
+    })
+    .catch(error => {
+        document.getElementById('loading').style.display = 'none';
+        console.error('Error completo:', error);  // Debug log
+        alert('Error de conexión: ' + error.message);
+    });
+});
+
+function displayResults(data) {
+    // Validate data
+    if (!data || !data.summary || !data.detail) {
+        alert('Error: datos inválidos recibidos del servidor');
+        return;
+    }
+
+    // Update company info
+    const companyInfo = document.getElementById('company-info');
+    if (companyInfo) {
+        companyInfo.textContent = `${data.cod_cia} - ${data.company_name}`;
+    }
+
+    // Display summary
+    const summaryBody = document.getElementById('summary-body');
+    if (summaryBody) {
+        summaryBody.innerHTML = '';
+
+        data.summary.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${row.periodo}</td>
+                <td class="text-end fw-bold">${formatNumber(row.total)}</td>
+            `;
+            summaryBody.appendChild(tr);
+        });
+    }
+
+    // Display detail
+    const detailBody = document.getElementById('detail-body');
+    if (detailBody) {
+        detailBody.innerHTML = '';
+
+        data.detail.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${row.periodo}</td>
+                <td>${row.cod_subramo || '-'}</td>
+                <td>${row.subramo_denominacion || '-'}</td>
+                <td>${row.cod_cuenta}</td>
+                <td class="text-end">${formatNumber(row.importe)}</td>
+                <td class="text-center">${row.signo > 0 ? '+' + row.signo : row.signo}</td>
+                <td class="text-end fw-bold">${formatNumber(row.valor)}</td>
+            `;
+            detailBody.appendChild(tr);
+        });
+    }
+
+    // Show results
+    const resultsSection = document.getElementById('results-section');
+    if (resultsSection) {
+        resultsSection.style.display = 'block';
+    }
+}
+
+function formatNumber(num) {
+    return new Intl.NumberFormat('es-AR').format(num);
+}
+</script>
+{% endblock %}
