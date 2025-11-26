@@ -30,6 +30,7 @@ from modules.crea_tabla_ramos import main as create_base_ramos_main
 from modules.crea_tabla_otros_conceptos import main as create_concepts_main
 from modules.crea_tabla_subramos_corregida import create_table_from_query, export_testing_data
 from modules.crea_tabla_ramos_corregida import create_ramos_table_from_query, export_ramos_testing_data
+from modules.crea_tabla_cias_corregida import create_table_from_query as create_cias_table_from_query
 from modules.file_utils import check_mdb_file_exists, list_available_mdb_files, get_file_status
 from modules.common import get_mdb_files_directory
 from modules.compare_csv_reports import compare_all_csv_reports, generate_comparison_report
@@ -523,7 +524,8 @@ def api_create_subramos():
                 # Modo producción: crear ambas tablas
                 create_table_from_query(periodo)  # Tabla de subramos corregida
                 create_ramos_table_from_query(periodo)  # Tabla de ramos corregida
-                message = f'Tablas de subramos y ramos corregidas creadas para período {periodo}'
+                create_cias_table_from_query(periodo)  # Tabla de compañías corregida
+                message = f'Tablas de subramos, ramos y compañías corregidas creadas para período {periodo}'
             
             logs = log_capture.get_logs()
             log_capture.stop_capture()

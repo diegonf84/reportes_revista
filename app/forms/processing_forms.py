@@ -85,7 +85,7 @@ class CreateFinancialConceptsForm(FlaskForm):
 
 
 class CreateSubramosForm(FlaskForm):
-    """Formulario para crear tablas de subramos y ramos corregidas."""
+    """Formulario para crear tablas de subramos, ramos y compañías corregidas."""
     periodo = IntegerField(
         'Período', 
         validators=[DataRequired(), validate_period_format],
