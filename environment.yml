@@ -10,6 +10,8 @@ dependencies:
     - python-dotenv
     - PyYAML
     - openpyxl
+    - pyarrow
+    - boto3
     # WEB UI DEPENDENCIES
     - Flask==3.0.0
     - Flask-WTF==1.2.1
