@@ -127,7 +127,7 @@ def export_otros_conceptos_to_parquet(max_period: int, output_dir: str = "output
     # Add company names from datos_companias
     # Note: cod_cia in datos_balance is string like '0002', in datos_companias is int like 2
     with sqlite3.connect(database_path) as conn:
-        companies_query = "SELECT cod_cia, nombre_corto FROM datos_companias"
+        companies_query = "SELECT cod_cia, nombre_corto, tipo_cia FROM datos_companias"
         companies_df = pd.read_sql_query(companies_query, conn)
 
     # Convert cod_cia to int for matching

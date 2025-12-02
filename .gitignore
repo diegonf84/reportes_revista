@@ -41,3 +41,6 @@ __pycache__/
 
 ### XLS Files ###
 *.xlsx
+
+## Carpeta de outputs ###
+/output/*
