@@ -80,8 +80,8 @@ def crear_hoja_principal_gastos(ws, df):
         ws.row_dimensions[current_row].height = 34
         current_row += 1
         
-        # Datos de las compañías, ordenados alfabéticamente
-        data_tipo_ordenado = data_tipo.sort_values('nombre_corto')
+        # Datos de las compañías, ordenados por primas emitidas (descendente)
+        data_tipo_ordenado = data_tipo.sort_values('primas_emitidas', ascending=False)
         for _, row_data in data_tipo_ordenado.iterrows():
             # Nombre de la entidad en columna B
             cell_entidad = ws.cell(row=current_row, column=2, value=row_data['nombre_corto'])
@@ -152,11 +152,11 @@ def crear_hoja_detalle_gastos(ws, df):
     
     # Headers
     headers = [
-        "Tipo", "ENTIDAD", "Primas Devengadas", "Gastos Prod.", "Gastos Explot.", 
+        "Tipo", "ENTIDAD", "Primas Emitidas", "Primas Devengadas", "Gastos Prod.", "Gastos Explot.",
         "Gastos Totales", "% Gastos Prod.", "% Gastos Explot.", "% Gastos Tot."
     ]
     columns_map = [
-        'tipo_cia', 'nombre_corto', 'total_primas_devengadas', 'total_gs_prod', 
+        'tipo_cia', 'nombre_corto', 'primas_emitidas', 'total_primas_devengadas', 'total_gs_prod',
         'total_gs_explot', 'total_gs', 'pct_gastos_produccion', 'pct_gastos_explotacion', 'pct_gastos_totales'
     ]
     
@@ -172,8 +172,8 @@ def crear_hoja_detalle_gastos(ws, df):
     ws.row_dimensions[current_row].height = 34
     current_row += 1
     
-    # Datos ordenados por tipo y entidad
-    datos_ordenados = df.sort_values(['tipo_cia', 'nombre_corto'])
+    # Datos ordenados por tipo y primas emitidas (descendente)
+    datos_ordenados = df.sort_values(['tipo_cia', 'primas_emitidas'], ascending=[True, False])
     
     for _, row_data in datos_ordenados.iterrows():
         for col_idx, csv_col in enumerate(columns_map, 1):
@@ -184,10 +184,10 @@ def crear_hoja_detalle_gastos(ws, df):
             cell.border = thin_border
             
             # Formatear según tipo de columna
-            if col_idx in [3, 4, 5, 6]:  # Montos
+            if col_idx in [3, 4, 5, 6, 7]:  # Montos
                 cell.number_format = '#,##0,'
                 cell.alignment = center_alignment
-            elif col_idx in [7, 8, 9]:  # Porcentajes
+            elif col_idx in [8, 9, 10]:  # Porcentajes
                 cell.number_format = '0.00'
                 cell.alignment = center_alignment
         
@@ -205,6 +205,7 @@ def crear_hoja_detalle_gastos(ws, df):
     cell_total_entidad.border = thin_border
     
     valores_totales = [
+        totales_generales['primas_emitidas'],
         totales_generales['total_primas_devengadas'],
         totales_generales['total_gs_prod'],
         totales_generales['total_gs_explot'],
@@ -213,31 +214,32 @@ def crear_hoja_detalle_gastos(ws, df):
         totales_generales['pct_gastos_explotacion'],
         totales_generales['pct_gastos_totales']
     ]
-    
+
     for col_idx, valor in enumerate(valores_totales, 3):
         cell = ws.cell(row=current_row, column=col_idx, value=valor)
         cell.font = total_font
         cell.border = thin_border
-        
-        if col_idx in [3, 4, 5, 6]:  # Montos
+
+        if col_idx in [3, 4, 5, 6, 7]:  # Montos
             cell.number_format = '#,##0,'
-        elif col_idx in [7, 8, 9]:  # Porcentajes
+        elif col_idx in [8, 9, 10]:  # Porcentajes
             cell.number_format = '0.00'
-        
+
         cell.alignment = center_alignment
     
     # Ajustar anchos de columnas
-    column_widths = [12, 36, 16, 14, 14, 14, 12, 12, 12]
+    column_widths = [12, 36, 16, 16, 14, 14, 14, 12, 12, 12]
     for col_idx, width in enumerate(column_widths, 1):
         ws.column_dimensions[get_column_letter(col_idx)].width = width
 
 def calcular_totales_generales_gastos(data: pd.DataFrame) -> dict:
     """Calcula totales generales para toda la base de gastos"""
+    primas_emitidas = data['primas_emitidas'].sum()
     total_primas = data['total_primas_devengadas'].sum()
     total_gs_prod = data['total_gs_prod'].sum()
     total_gs_explot = data['total_gs_explot'].sum()
     total_gs = data['total_gs'].sum()
-    
+
     # Calcular porcentajes totales
     if total_primas > 0:
         pct_prod = (total_gs_prod / total_primas) * 100
@@ -245,8 +247,9 @@ def calcular_totales_generales_gastos(data: pd.DataFrame) -> dict:
         pct_tot = (total_gs / total_primas) * 100
     else:
         pct_prod = pct_explot = pct_tot = 0
-    
+
     return {
+        'primas_emitidas': primas_emitidas,
         'total_primas_devengadas': total_primas,
         'total_gs_prod': total_gs_prod,
         'total_gs_explot': total_gs_explot,

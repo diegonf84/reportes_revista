@@ -253,7 +253,7 @@
     "detalle_gastos": {
       "query": [
         "with base as (",
-        "    select cod_cia, primas_devengadas, ",
+        "    select cod_cia, primas_emitidas, primas_devengadas, ",
         "           (gs_prod_comisiones + gs_prod_otros - gs_a_c_reaseguro) as gastos_produccion, ",
         "           (gs_exp_sueldos + gs_exp_ret_sindicos + gs_exp_honorarios + gs_exp_impuestos + gs_exp_publicidad + gs_exp_otros + gs_reaseg_act_prod) as gastos_explotacion, ",
         "           gs_a_c_reaseguro as gastos_reaseguro, ",
@@ -263,6 +263,7 @@
         "), ",
         "por_cia as (",
         "    select cod_cia, ",
+        "           sum(primas_emitidas) as primas_emitidas, ",
         "           sum(primas_devengadas) as total_primas_devengadas, ",
         "           sum(gastos_produccion) as total_gs_prod, ",
         "           sum(gastos_explotacion) as total_gs_explot, ",
@@ -270,16 +271,16 @@
         "    from base ",
         "    GROUP by cod_cia",
         ") ",
-        "select dc.tipo_cia, dc.nombre_corto, dc.cod_cia, c.total_primas_devengadas, ",
+        "select dc.tipo_cia, dc.nombre_corto, dc.cod_cia, c.primas_emitidas, c.total_primas_devengadas, ",
         "       c.total_gs_prod, c.total_gs_explot, c.total_gs, ",
         "       round(iif(c.total_primas_devengadas = 0, 0, (c.total_gs_prod / c.total_primas_devengadas) * 100), 2) as pct_gastos_produccion, ",
         "       round(iif(c.total_primas_devengadas = 0, 0, (c.total_gs_explot / c.total_primas_devengadas) * 100), 2) as pct_gastos_explotacion, ",
         "       round(iif(c.total_primas_devengadas = 0, 0, (c.total_gs / c.total_primas_devengadas) * 100), 2) as pct_gastos_totales ",
         "from por_cia c ",
         "join datos_companias dc using (cod_cia) ",
-        "order by dc.tipo_cia, dc.nombre_corto"
+        "order by dc.tipo_cia, c.primas_emitidas desc"
       ],
-      "int_columns": ["total_primas_devengadas", "total_gs_prod", "total_gs_explot", "total_gs"],
+      "int_columns": ["primas_emitidas", "total_primas_devengadas", "total_gs_prod", "total_gs_explot", "total_gs"],
       "separator": ",",
       "decimal": "."
     },

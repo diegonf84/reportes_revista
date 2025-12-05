@@ -1,8 +1,12 @@
 import json
 import logging
 import os
+import sys
 import argparse
 from typing import Dict, Any, Union, List
+
+# Add parent directory to path to import utils
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.report_generator import export_query_to_csv
 
 def process_query(query: Union[str, List[str]], period: str) -> str:
