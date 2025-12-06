@@ -107,7 +107,7 @@ def load_all_data(conn: sqlite3.Connection, all_periods: list, concepts: list) -
     periods_str = ','.join([str(p) for p in all_periods])
 
     base_query = f"""
-    SELECT db.*, r.subramo_denominacion, r.ramo_tipo
+    SELECT db.*, r.subramo_denominacion, r.ramo_denominacion, r.ramo_tipo
     FROM datos_balance db
     LEFT JOIN datos_ramos_subramos r USING (cod_subramo)
     WHERE db.periodo IN ({periods_str})
@@ -128,9 +128,9 @@ def load_all_data(conn: sqlite3.Connection, all_periods: list, concepts: list) -
         else:
             result[concepto] = 0
 
-    # Aggregate by periodo, cod_cia, cod_subramo, subramo_denominacion, ramo_tipo
+    # Aggregate by periodo, cod_cia, cod_subramo, subramo_denominacion, ramo_denominacion, ramo_tipo
     agg_dict = {col: 'sum' for col in concepts}
-    aggregated = result.groupby(['periodo', 'cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_tipo'], as_index=False).agg(agg_dict)
+    aggregated = result.groupby(['periodo', 'cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_denominacion', 'ramo_tipo'], as_index=False).agg(agg_dict)
 
     logger.info(f"Aggregated to {len(aggregated):,} rows (periodo, cod_cia, cod_subramo)")
 
@@ -144,17 +144,17 @@ def get_data_for_period_and_cia(all_data: pd.DataFrame, periodo: int, cod_cias: 
         (all_data['cod_cia'].isin(cod_cias))
     ].copy()
 
-    key_cols = ['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_tipo']
+    key_cols = ['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_denominacion', 'ramo_tipo']
     return filtered[key_cols + [col for col in filtered.columns if col not in ['periodo'] + key_cols]]
 
 
 def apply_corregida_formula_march(actual_df, junio_df, diciembre_df, concepts: list):
     """Apply marzo corregida formula: actual - junio + diciembre"""
-    result = actual_df[['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_tipo']].copy()
+    result = actual_df[['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_denominacion', 'ramo_tipo']].copy()
 
     # Merge dataframes
-    df = actual_df.merge(junio_df, on=['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_tipo'], how='left', suffixes=('_act', '_jun'))
-    df = df.merge(diciembre_df, on=['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_tipo'], how='left', suffixes=('', '_dic'))
+    df = actual_df.merge(junio_df, on=['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_denominacion', 'ramo_tipo'], how='left', suffixes=('_act', '_jun'))
+    df = df.merge(diciembre_df, on=['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_denominacion', 'ramo_tipo'], how='left', suffixes=('', '_dic'))
 
     # Apply formula to each concept: actual - junio + diciembre
     for concept in concepts:
@@ -169,11 +169,11 @@ def apply_corregida_formula_march(actual_df, junio_df, diciembre_df, concepts: l
 
 def apply_corregida_formula_june(actual_df, diciembre_df, junio_df, concepts: list):
     """Apply junio corregida formula: actual + diciembre - junio"""
-    result = actual_df[['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_tipo']].copy()
+    result = actual_df[['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_denominacion', 'ramo_tipo']].copy()
 
     # Merge dataframes
-    df = actual_df.merge(diciembre_df, on=['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_tipo'], how='left', suffixes=('_act', '_dic'))
-    df = df.merge(junio_df, on=['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_tipo'], how='left', suffixes=('', '_jun'))
+    df = actual_df.merge(diciembre_df, on=['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_denominacion', 'ramo_tipo'], how='left', suffixes=('_act', '_dic'))
+    df = df.merge(junio_df, on=['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_denominacion', 'ramo_tipo'], how='left', suffixes=('', '_jun'))
 
     # Apply formula to each concept: actual + diciembre - junio
     for concept in concepts:
@@ -188,10 +188,10 @@ def apply_corregida_formula_june(actual_df, diciembre_df, junio_df, concepts: li
 
 def apply_corregida_formula_sept_dec(actual_df, junio_df, concepts: list):
     """Apply sept/dec corregida formula: actual - junio"""
-    result = actual_df[['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_tipo']].copy()
+    result = actual_df[['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_denominacion', 'ramo_tipo']].copy()
 
     # Merge dataframes
-    df = actual_df.merge(junio_df, on=['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_tipo'], how='left', suffixes=('_act', '_jun'))
+    df = actual_df.merge(junio_df, on=['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_denominacion', 'ramo_tipo'], how='left', suffixes=('_act', '_jun'))
 
     # Apply formula to each concept: actual - junio
     for concept in concepts:
@@ -257,6 +257,106 @@ def get_data_for_period(all_data: pd.DataFrame, periodo: int, concepts: list) ->
     return combined_df
 
 
+def add_quarter_and_date_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Add fiscal quarter and date columns based on period.
+
+    Fiscal year is July-June:
+    - Period 03 (Sep) → Q1 fiscal, date: YYYY-09-01
+    - Period 04 (Dec) → Q2 fiscal, date: YYYY-12-01
+    - Period 01 (Mar) → Q3 fiscal, date: YYYY-03-01
+    - Period 02 (Jun) → Q4 fiscal, date: YYYY-06-01
+    """
+    result_df = df.copy()
+
+    # Map quarter number to fiscal quarter and month
+    quarter_map = {
+        3: {'fiscal_q': 'Q1', 'month': 9},   # September
+        4: {'fiscal_q': 'Q2', 'month': 12},  # December
+        1: {'fiscal_q': 'Q3', 'month': 3},   # March
+        2: {'fiscal_q': 'Q4', 'month': 6}    # June
+    }
+
+    # Apply mapping
+    result_df['fiscal_quarter'] = result_df['periodo'].apply(
+        lambda p: quarter_map[int(str(p)[4:])]['fiscal_q']
+    )
+
+    result_df['period_date'] = result_df['periodo'].apply(
+        lambda p: pd.Timestamp(year=int(str(p)[:4]), month=quarter_map[int(str(p)[4:])]['month'], day=1)
+    )
+
+    logger.info("Added fiscal_quarter and period_date columns")
+    return result_df
+
+
+def add_current_period_columns(df: pd.DataFrame, concepts: list) -> pd.DataFrame:
+    """
+    Add "_current" columns showing quarter-only values (not cumulative).
+
+    Logic based on fiscal year July-June:
+    - Period 03: current = P03 (already Q1 only: Jul+Aug+Sep)
+    - Period 04: current = P04 - P03 (Q2 only: Oct+Nov+Dec)
+    - Period 01: current = P01 - P04_prev_year (Q3 only: Jan+Feb+Mar)
+    - Period 02: current = P02 - P01 (Q4 only: Apr+May+Jun)
+    """
+    result_df = df.copy()
+
+    # Create lookup dictionary for fast access: (periodo, cod_cia, cod_subramo) -> row_index
+    df_indexed = df.set_index(['periodo', 'cod_cia', 'cod_subramo'])
+
+    # For each row, calculate current values
+    for idx, row in df.iterrows():
+        periodo = row['periodo']
+        cod_cia = row['cod_cia']
+        cod_subramo = row['cod_subramo']
+
+        periodo_str = str(periodo)
+        year = int(periodo_str[:4])
+        quarter = int(periodo_str[4:])
+
+        # Determine the previous period based on fiscal year logic
+        if quarter == 3:  # Sep: already Q1, no subtraction needed
+            for concept in concepts:
+                result_df.loc[idx, f'{concept}_current'] = row[concept]
+
+        elif quarter == 4:  # Dec: subtract Sep of same year
+            prev_periodo = int(f"{year}03")
+            try:
+                prev_row = df_indexed.loc[(prev_periodo, cod_cia, cod_subramo)]
+                for concept in concepts:
+                    result_df.loc[idx, f'{concept}_current'] = row[concept] - prev_row[concept]
+            except KeyError:
+                # If previous period not found, use current value as fallback
+                for concept in concepts:
+                    result_df.loc[idx, f'{concept}_current'] = row[concept]
+
+        elif quarter == 1:  # Mar: subtract Dec of previous year
+            prev_periodo = int(f"{year-1}04")
+            try:
+                prev_row = df_indexed.loc[(prev_periodo, cod_cia, cod_subramo)]
+                for concept in concepts:
+                    result_df.loc[idx, f'{concept}_current'] = row[concept] - prev_row[concept]
+            except KeyError:
+                # If previous period not found, use current value as fallback
+                for concept in concepts:
+                    result_df.loc[idx, f'{concept}_current'] = row[concept]
+
+        elif quarter == 2:  # Jun: subtract Mar of same year
+            prev_periodo = int(f"{year}01")
+            try:
+                prev_row = df_indexed.loc[(prev_periodo, cod_cia, cod_subramo)]
+                for concept in concepts:
+                    result_df.loc[idx, f'{concept}_current'] = row[concept] - prev_row[concept]
+            except KeyError:
+                # If previous period not found, use current value as fallback
+                for concept in concepts:
+                    result_df.loc[idx, f'{concept}_current'] = row[concept]
+
+    logger.info(f"Added _current columns for {len(concepts)} concepts")
+    return result_df
+
+
 def export_subramos_to_parquet(max_period: int, output_dir: str = "output/parquet") -> None:
     """Export historical subramos data with corregida logic to parquet file"""
     load_dotenv()
@@ -305,6 +405,14 @@ def export_subramos_to_parquet(max_period: int, output_dir: str = "output/parque
         raise ValueError("No data was retrieved for any period")
 
     combined_df = pd.concat(all_data_list, ignore_index=True)
+
+    # Add fiscal quarter and date columns
+    logger.info("Adding fiscal quarter and date columns...")
+    combined_df = add_quarter_and_date_columns(combined_df)
+
+    # Calculate "_current" columns (quarter-only values, not cumulative)
+    logger.info("Calculating _current columns for quarter-only values...")
+    combined_df = add_current_period_columns(combined_df, concepts)
 
     # Add company names from datos_companias
     # Note: cod_cia in datos_balance is string like '0002', in datos_companias is int like 2

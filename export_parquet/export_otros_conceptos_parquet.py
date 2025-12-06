@@ -97,6 +97,39 @@ def load_all_data(conn: sqlite3.Connection, all_periods: list, concepts: list) -
     return aggregated
 
 
+def add_quarter_and_date_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Add fiscal quarter and date columns based on period.
+
+    Fiscal year is July-June:
+    - Period 03 (Sep) → Q1 fiscal, date: YYYY-09-01
+    - Period 04 (Dec) → Q2 fiscal, date: YYYY-12-01
+    - Period 01 (Mar) → Q3 fiscal, date: YYYY-03-01
+    - Period 02 (Jun) → Q4 fiscal, date: YYYY-06-01
+    """
+    result_df = df.copy()
+
+    # Map quarter number to fiscal quarter and month
+    quarter_map = {
+        3: {'fiscal_q': 'Q1', 'month': 9},   # September
+        4: {'fiscal_q': 'Q2', 'month': 12},  # December
+        1: {'fiscal_q': 'Q3', 'month': 3},   # March
+        2: {'fiscal_q': 'Q4', 'month': 6}    # June
+    }
+
+    # Apply mapping
+    result_df['fiscal_quarter'] = result_df['periodo'].apply(
+        lambda p: quarter_map[int(str(p)[4:])]['fiscal_q']
+    )
+
+    result_df['period_date'] = result_df['periodo'].apply(
+        lambda p: pd.Timestamp(year=int(str(p)[:4]), month=quarter_map[int(str(p)[4:])]['month'], day=1)
+    )
+
+    logger.info("Added fiscal_quarter and period_date columns")
+    return result_df
+
+
 def export_otros_conceptos_to_parquet(max_period: int, output_dir: str = "output/parquet") -> None:
     """Export historical otros_conceptos data to parquet file"""
     load_dotenv()
@@ -123,6 +156,10 @@ def export_otros_conceptos_to_parquet(max_period: int, output_dir: str = "output
 
     # Filter to only target periods (all_data already has them, but just to be sure)
     final_data = all_data[all_data['periodo'].isin(target_periods)].copy()
+
+    # Add fiscal quarter and date columns
+    logger.info("Adding fiscal quarter and date columns...")
+    final_data = add_quarter_and_date_columns(final_data)
 
     # Add company names from datos_companias
     # Note: cod_cia in datos_balance is string like '0002', in datos_companias is int like 2
