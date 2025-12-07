@@ -107,7 +107,7 @@ def load_all_data(conn: sqlite3.Connection, all_periods: list, concepts: list) -
     periods_str = ','.join([str(p) for p in all_periods])
 
     base_query = f"""
-    SELECT db.*, r.subramo_denominacion, r.ramo_denominacion, r.ramo_tipo
+    SELECT db.*, r.subramo_nombre_corto, r.ramo_nombre_corto, r.ramo_tipo
     FROM datos_balance db
     LEFT JOIN datos_ramos_subramos r USING (cod_subramo)
     WHERE db.periodo IN ({periods_str})
@@ -128,9 +128,9 @@ def load_all_data(conn: sqlite3.Connection, all_periods: list, concepts: list) -
         else:
             result[concepto] = 0
 
-    # Aggregate by periodo, cod_cia, cod_subramo, subramo_denominacion, ramo_denominacion, ramo_tipo
+    # Aggregate by periodo, cod_cia, cod_subramo, subramo_nombre_corto, ramo_nombre_corto, ramo_tipo
     agg_dict = {col: 'sum' for col in concepts}
-    aggregated = result.groupby(['periodo', 'cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_denominacion', 'ramo_tipo'], as_index=False).agg(agg_dict)
+    aggregated = result.groupby(['periodo', 'cod_cia', 'cod_subramo', 'subramo_nombre_corto', 'ramo_nombre_corto', 'ramo_tipo'], as_index=False).agg(agg_dict)
 
     logger.info(f"Aggregated to {len(aggregated):,} rows (periodo, cod_cia, cod_subramo)")
 
@@ -144,19 +144,41 @@ def get_data_for_period_and_cia(all_data: pd.DataFrame, periodo: int, cod_cias: 
         (all_data['cod_cia'].isin(cod_cias))
     ].copy()
 
-    key_cols = ['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_denominacion', 'ramo_tipo']
+    key_cols = ['cod_cia', 'cod_subramo', 'subramo_nombre_corto', 'ramo_nombre_corto', 'ramo_tipo']
     return filtered[key_cols + [col for col in filtered.columns if col not in ['periodo'] + key_cols]]
 
 
 def apply_corregida_formula_march(actual_df, junio_df, diciembre_df, concepts: list):
     """Apply marzo corregida formula: actual - junio + diciembre"""
-    result = actual_df[['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_denominacion', 'ramo_tipo']].copy()
+    key_cols = ['cod_cia', 'cod_subramo', 'subramo_nombre_corto', 'ramo_nombre_corto', 'ramo_tipo']
+
+    # Reset indices to avoid alignment issues during assignment
+    actual_reset = actual_df.reset_index(drop=True)
+    junio_reset = junio_df.reset_index(drop=True)
+    diciembre_reset = diciembre_df.reset_index(drop=True)
+
+    # Rename concept columns in each dataframe to avoid suffix confusion
+    actual_renamed = actual_reset[key_cols].copy()
+    for concept in concepts:
+        if concept in actual_reset.columns:
+            actual_renamed[f'{concept}_act'] = actual_reset[concept]
+
+    junio_renamed = junio_reset[key_cols].copy()
+    for concept in concepts:
+        if concept in junio_reset.columns:
+            junio_renamed[f'{concept}_jun'] = junio_reset[concept]
+
+    diciembre_renamed = diciembre_reset[key_cols].copy()
+    for concept in concepts:
+        if concept in diciembre_reset.columns:
+            diciembre_renamed[f'{concept}_dic'] = diciembre_reset[concept]
 
     # Merge dataframes
-    df = actual_df.merge(junio_df, on=['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_denominacion', 'ramo_tipo'], how='left', suffixes=('_act', '_jun'))
-    df = df.merge(diciembre_df, on=['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_denominacion', 'ramo_tipo'], how='left', suffixes=('', '_dic'))
+    df = actual_renamed.merge(junio_renamed, on=key_cols, how='left')
+    df = df.merge(diciembre_renamed, on=key_cols, how='left')
 
     # Apply formula to each concept: actual - junio + diciembre
+    result = df[key_cols].copy()
     for concept in concepts:
         act = df[f'{concept}_act'].fillna(0) if f'{concept}_act' in df.columns else 0
         jun = df[f'{concept}_jun'].fillna(0) if f'{concept}_jun' in df.columns else 0
@@ -169,13 +191,35 @@ def apply_corregida_formula_march(actual_df, junio_df, diciembre_df, concepts: l
 
 def apply_corregida_formula_june(actual_df, diciembre_df, junio_df, concepts: list):
     """Apply junio corregida formula: actual + diciembre - junio"""
-    result = actual_df[['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_denominacion', 'ramo_tipo']].copy()
+    key_cols = ['cod_cia', 'cod_subramo', 'subramo_nombre_corto', 'ramo_nombre_corto', 'ramo_tipo']
+
+    # Reset indices to avoid alignment issues during assignment
+    actual_reset = actual_df.reset_index(drop=True)
+    diciembre_reset = diciembre_df.reset_index(drop=True)
+    junio_reset = junio_df.reset_index(drop=True)
+
+    # Rename concept columns in each dataframe to avoid suffix confusion
+    actual_renamed = actual_reset[key_cols].copy()
+    for concept in concepts:
+        if concept in actual_reset.columns:
+            actual_renamed[f'{concept}_act'] = actual_reset[concept]
+
+    diciembre_renamed = diciembre_reset[key_cols].copy()
+    for concept in concepts:
+        if concept in diciembre_reset.columns:
+            diciembre_renamed[f'{concept}_dic'] = diciembre_reset[concept]
+
+    junio_renamed = junio_reset[key_cols].copy()
+    for concept in concepts:
+        if concept in junio_reset.columns:
+            junio_renamed[f'{concept}_jun'] = junio_reset[concept]
 
     # Merge dataframes
-    df = actual_df.merge(diciembre_df, on=['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_denominacion', 'ramo_tipo'], how='left', suffixes=('_act', '_dic'))
-    df = df.merge(junio_df, on=['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_denominacion', 'ramo_tipo'], how='left', suffixes=('', '_jun'))
+    df = actual_renamed.merge(diciembre_renamed, on=key_cols, how='left')
+    df = df.merge(junio_renamed, on=key_cols, how='left')
 
     # Apply formula to each concept: actual + diciembre - junio
+    result = df[key_cols].copy()
     for concept in concepts:
         act = df[f'{concept}_act'].fillna(0) if f'{concept}_act' in df.columns else 0
         dic = df[f'{concept}_dic'].fillna(0) if f'{concept}_dic' in df.columns else 0
@@ -188,12 +232,28 @@ def apply_corregida_formula_june(actual_df, diciembre_df, junio_df, concepts: li
 
 def apply_corregida_formula_sept_dec(actual_df, junio_df, concepts: list):
     """Apply sept/dec corregida formula: actual - junio"""
-    result = actual_df[['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_denominacion', 'ramo_tipo']].copy()
+    key_cols = ['cod_cia', 'cod_subramo', 'subramo_nombre_corto', 'ramo_nombre_corto', 'ramo_tipo']
+
+    # Reset indices to avoid alignment issues during assignment
+    actual_reset = actual_df.reset_index(drop=True)
+    junio_reset = junio_df.reset_index(drop=True)
+
+    # Rename concept columns in each dataframe to avoid suffix confusion
+    actual_renamed = actual_reset[key_cols].copy()
+    for concept in concepts:
+        if concept in actual_reset.columns:
+            actual_renamed[f'{concept}_act'] = actual_reset[concept]
+
+    junio_renamed = junio_reset[key_cols].copy()
+    for concept in concepts:
+        if concept in junio_reset.columns:
+            junio_renamed[f'{concept}_jun'] = junio_reset[concept]
 
     # Merge dataframes
-    df = actual_df.merge(junio_df, on=['cod_cia', 'cod_subramo', 'subramo_denominacion', 'ramo_denominacion', 'ramo_tipo'], how='left', suffixes=('_act', '_jun'))
+    df = actual_renamed.merge(junio_renamed, on=key_cols, how='left')
 
     # Apply formula to each concept: actual - junio
+    result = df[key_cols].copy()
     for concept in concepts:
         act = df[f'{concept}_act'].fillna(0) if f'{concept}_act' in df.columns else 0
         jun = df[f'{concept}_jun'].fillna(0) if f'{concept}_jun' in df.columns else 0
