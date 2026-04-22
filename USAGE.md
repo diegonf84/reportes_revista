@@ -385,6 +385,71 @@ python excel_generators/sueldos_y_gastos.py 202501
 
 ---
 
+## Export a Parquet + Upload a S3 (para visualización)
+
+La carpeta `export_parquet/` contiene scripts que generan archivos Parquet históricos
+(últimos 5 años) y los suben a un bucket S3 para ser consumidos por Superset u otras
+herramientas de visualización.
+
+### Configuración de variables de entorno
+
+Agregar al archivo `.env`:
+```bash
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_REGION=us-east-1
+S3_BUCKET=nombre-del-bucket
+S3_PREFIX=            # opcional, ej: "revista/parquet"
+```
+
+### Proceso unificado (recomendado)
+
+#### `run_all_and_upload.py`
+**Propósito:** Genera los 3 parquet históricos y los sube a S3 en una sola ejecución,
+pidiendo el `max_period` una única vez.
+
+```bash
+# Generar los 3 parquet (5 años hasta 202503) y subir a S3
+python export_parquet/run_all_and_upload.py --max_period 202503
+```
+
+**Qué hace internamente (en orden):**
+1. `export_subramos_to_parquet(max_period)` → `output/parquet/subramos_historico.parquet`
+2. `export_ramos_to_parquet(max_period)` → `output/parquet/ramos_historico.parquet`
+3. `export_otros_conceptos_to_parquet(max_period)` → `output/parquet/otros_conceptos_historico.parquet`
+4. `upload_parquet_files(...)` → sube los 3 archivos a `s3://$S3_BUCKET/$S3_PREFIX/`
+
+Valida las credenciales AWS al inicio para fallar rápido si faltan, y muestra el
+tiempo de cada paso.
+
+### Scripts individuales (uso standalone)
+
+Los scripts siguen funcionando por separado si hace falta regenerar solo uno:
+
+```bash
+# Generar parquet de subramos histórico (5 años)
+python export_parquet/export_subramos_parquet.py --max_period 202503
+
+# Generar parquet de ramos histórico (5 años)
+python export_parquet/export_ramos_parquet.py --max_period 202503
+
+# Generar parquet de otros conceptos histórico (5 años)
+python export_parquet/export_otros_conceptos_parquet.py --max_period 202503
+
+# Generar parquet de una sola compañía
+python export_parquet/export_company_to_s3.py ...
+
+# Subir los parquet ya generados a S3
+python export_parquet/upload_to_s3.py
+```
+
+**Archivos generados:**
+- `output/parquet/subramos_historico.parquet`
+- `output/parquet/ramos_historico.parquet`
+- `output/parquet/otros_conceptos_historico.parquet`
+
+---
+
 ## Flujo de Trabajo Completo
 
 ### Proceso completo para nuevo período (3 fases):

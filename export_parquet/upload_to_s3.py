@@ -4,21 +4,17 @@ Upload parquet files to AWS S3 bucket.
 This script uploads the generated parquet files to an S3 bucket for use
 with Superset or other data visualization tools.
 
-Usage:
-    python export_parquet/upload_to_s3.py --bucket my-bucket-name
+Reads S3_BUCKET and S3_PREFIX from .env file.
 
-Optional:
-    --prefix folder/path/  (to upload to a specific folder in the bucket)
-    --input_dir output/parquet  (where to find the parquet files)
+Usage:
+    python export_parquet/upload_to_s3.py
 """
 
 import boto3
 import os
 import sys
-import argparse
 from dotenv import load_dotenv
 import logging
-from pathlib import Path
 
 # Add parent directory to path to import modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -135,60 +131,26 @@ def main():
     # Load environment variables
     load_dotenv()
 
-    parser = argparse.ArgumentParser(
-        description='Upload parquet files to AWS S3',
-        formatter_class=argparse.RawDescriptionHelpFormatter
-    )
-
-    parser.add_argument(
-        '--bucket',
-        type=str,
-        required=True,
-        help='S3 bucket name'
-    )
-
-    parser.add_argument(
-        '--prefix',
-        type=str,
-        default='',
-        help='Optional prefix/folder path in S3 (e.g., "data/parquet/")'
-    )
-
-    parser.add_argument(
-        '--input_dir',
-        type=str,
-        default='output/parquet',
-        help='Input directory containing parquet files (default: output/parquet)'
-    )
-
-    parser.add_argument(
-        '--region',
-        type=str,
-        default=None,
-        help='AWS region (optional, e.g., us-east-1)'
-    )
-
-    args = parser.parse_args()
-
-    # Get AWS credentials from environment variables
+    # Get config from .env
     aws_access_key = os.getenv('AWS_ACCESS_KEY_ID')
     aws_secret_key = os.getenv('AWS_SECRET_ACCESS_KEY')
-    region_name = args.region or os.getenv('AWS_REGION')
+    region_name = os.getenv('AWS_REGION')
+    bucket_name = os.getenv('S3_BUCKET')
+    prefix = os.getenv('S3_PREFIX', '')
 
     if not aws_access_key or not aws_secret_key:
-        logger.error("❌ AWS credentials not found!")
-        logger.error("   Please set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables")
-        logger.error("   You can add them to your .env file:")
-        logger.error("   AWS_ACCESS_KEY_ID=your_access_key")
-        logger.error("   AWS_SECRET_ACCESS_KEY=your_secret_key")
-        logger.error("   AWS_REGION=your_region (optional)")
+        logger.error("❌ AWS credentials not found in .env")
+        sys.exit(1)
+
+    if not bucket_name:
+        logger.error("❌ S3_BUCKET not found in .env")
         sys.exit(1)
 
     # Upload files
     upload_parquet_files(
-        bucket_name=args.bucket,
-        input_dir=args.input_dir,
-        prefix=args.prefix,
+        bucket_name=bucket_name,
+        input_dir='output/parquet',
+        prefix=prefix,
         aws_access_key=aws_access_key,
         aws_secret_key=aws_secret_key,
         region_name=region_name

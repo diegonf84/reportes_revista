@@ -175,6 +175,22 @@ python excel_generators/ranking_comparativo.py 202501
 # ... (otros generadores según necesidad)
 ```
 
+#### **Fase 4: Export a Parquet + Upload a S3 (visualización)**
+```bash
+# 7. Generar los 3 parquet históricos (5 años) y subirlos a S3 en un solo paso
+python export_parquet/run_all_and_upload.py --max_period 202503
+```
+
+Este orquestador ejecuta en orden:
+- `export_subramos_to_parquet`
+- `export_ramos_to_parquet`
+- `export_otros_conceptos_to_parquet`
+- `upload_parquet_files` (lee `S3_BUCKET`, `S3_PREFIX`, `AWS_*` desde `.env`)
+
+Los scripts individuales (`export_subramos_parquet.py`, `export_ramos_parquet.py`,
+`export_otros_conceptos_parquet.py`, `upload_to_s3.py`) siguen funcionando standalone
+si se necesitan por separado.
+
 ### Documentación
 
 - **[USAGE.md](USAGE.md)** - Guía práctica paso a paso con ejemplos

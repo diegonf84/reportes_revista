@@ -258,6 +258,70 @@ def get_data_for_period(all_data: pd.DataFrame, periodo: int, concepts: list) ->
     return combined_df
 
 
+def add_current_period_columns(df: pd.DataFrame, concepts: list) -> pd.DataFrame:
+    """
+    Add "_current" columns showing quarter-only values (not cumulative).
+
+    Logic based on fiscal year July-June:
+    - Period 03: current = P03 (already Q1 only: Jul+Aug+Sep)
+    - Period 04: current = P04 - P03 (Q2 only: Oct+Nov+Dec)
+    - Period 01: current = P01 - P04_prev_year (Q3 only: Jan+Feb+Mar)
+    - Period 02: current = P02 - P01 (Q4 only: Apr+May+Jun)
+    """
+    result_df = df.copy()
+
+    # Create lookup dictionary for fast access: (periodo, cod_cia, ramo_denominacion) -> row_index
+    df_indexed = df.set_index(['periodo', 'cod_cia', 'ramo_denominacion'])
+
+    # For each row, calculate current values
+    for idx, row in df.iterrows():
+        periodo = row['periodo']
+        cod_cia = row['cod_cia']
+        ramo_denominacion = row['ramo_denominacion']
+
+        periodo_str = str(periodo)
+        year = int(periodo_str[:4])
+        quarter = int(periodo_str[4:])
+
+        # Determine the previous period based on fiscal year logic
+        if quarter == 3:  # Sep: already Q1, no subtraction needed
+            for concept in concepts:
+                result_df.loc[idx, f'{concept}_current'] = row[concept]
+
+        elif quarter == 4:  # Dec: subtract Sep of same year
+            prev_periodo = int(f"{year}03")
+            try:
+                prev_row = df_indexed.loc[(prev_periodo, cod_cia, ramo_denominacion)]
+                for concept in concepts:
+                    result_df.loc[idx, f'{concept}_current'] = row[concept] - prev_row[concept]
+            except KeyError:
+                for concept in concepts:
+                    result_df.loc[idx, f'{concept}_current'] = row[concept]
+
+        elif quarter == 1:  # Mar: subtract Dec of previous year
+            prev_periodo = int(f"{year-1}04")
+            try:
+                prev_row = df_indexed.loc[(prev_periodo, cod_cia, ramo_denominacion)]
+                for concept in concepts:
+                    result_df.loc[idx, f'{concept}_current'] = row[concept] - prev_row[concept]
+            except KeyError:
+                for concept in concepts:
+                    result_df.loc[idx, f'{concept}_current'] = row[concept]
+
+        elif quarter == 2:  # Jun: subtract Mar of same year
+            prev_periodo = int(f"{year}01")
+            try:
+                prev_row = df_indexed.loc[(prev_periodo, cod_cia, ramo_denominacion)]
+                for concept in concepts:
+                    result_df.loc[idx, f'{concept}_current'] = row[concept] - prev_row[concept]
+            except KeyError:
+                for concept in concepts:
+                    result_df.loc[idx, f'{concept}_current'] = row[concept]
+
+    logger.info(f"Added _current columns for {len(concepts)} concepts")
+    return result_df
+
+
 def export_ramos_to_parquet(max_period: int, output_dir: str = "output/parquet") -> None:
     """Export historical ramos data with corregida logic to parquet file"""
     load_dotenv()
@@ -306,6 +370,10 @@ def export_ramos_to_parquet(max_period: int, output_dir: str = "output/parquet")
         raise ValueError("No data was retrieved for any period")
 
     combined_df = pd.concat(all_data_list, ignore_index=True)
+
+    # Calculate "_current" columns (quarter-only values, not cumulative)
+    logger.info("Calculating _current columns for quarter-only values...")
+    combined_df = add_current_period_columns(combined_df, concepts)
 
     # Add company names from datos_companias
     # Note: cod_cia in datos_balance is string like '0002', in datos_companias is int like 2
