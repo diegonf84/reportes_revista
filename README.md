@@ -52,7 +52,12 @@ pip install -e .
 │
 ├── docs/                          # Documentación
 │   ├── MODULES.md                 # Documentación técnica detallada
-│   └── WEB_UI_PLAN.md             # Plan y estado del Web UI
+│   ├── TABLAS.md                  # Referencia de tablas de la base de datos
+│   ├── MAPEO_REPORTES.md          # Mapeo reporte → tablas/columnas/dependencias
+│   ├── GLOSARIO.md                # Glosario de negocio (YYYYPP, corregida, etc.)
+│   ├── METRICAS.md                # Métricas calculadas (fórmulas, denominadores)
+│   ├── LIMITACIONES_PIPELINE.md   # Limitaciones del pipeline y orden de ejecución
+│   └── Resumen de cuadros.md      # Resumen funcional de los 13 reportes
 │
 ├── ending_files/                  # FASE 2: Archivos CSV finales por período
 │   ├── 202404/
@@ -244,3 +249,32 @@ Todos los módulos usan períodos en formato **YYYYPP**:
 - Ampliar conceptos de reportes (primas cedidas, etc.)
 - Implementar tests automatizados
 - Incluir nombres completos de ramos, subramos y compañías
+
+---
+
+## 🐛 TODO técnico — bugs y mejoras conocidos
+
+Inventario de issues detectados durante la documentación del pipeline. Marcados como **bug** (algo que produce resultados incorrectos o inconsistentes) o **mejora** (refactor / robustez / portabilidad).
+
+### Bugs
+
+- **[bug] Título hardcoded en `excel_generators/ganaron_perdieron.py:89`** — `"JULIO/24 - MARZO/25, EN MILES DE PESOS"` queda fijo sin importar el período de input. Debería derivarse del `period` argument.
+- **[bug] Inconsistencia LEFT JOIN vs FULL OUTER JOIN entre módulos de corrección** — `crea_tabla_ramos_corregida.py` y `crea_tabla_cias_corregida.py` usan `FULL OUTER JOIN` para las compañías comunes en T1/T2/T4 (mantienen compañías que aparecieron sólo en uno de los dos períodos), pero `crea_tabla_subramos_corregida.py` usa `LEFT JOIN` en los 4 trimestres. Resultado: el conjunto de compañías difiere entre los reportes que consumen `base_subramos_corregida_actual` y los que consumen `base_ramos_corregida_actual`. Unificar a una sola estrategia.
+- **[bug] `parametros_reportes` pierde duplicados sin warning** — `crea_tabla_subramos.py:218-219` hace `dict(zip(concepto_data['cod_cuenta'], concepto_data['signo']))`. Si una `cod_cuenta` aparece dos veces para el mismo concepto con signos distintos, sólo queda el último. Validar unicidad o agregar el segundo en lugar de reemplazar.
+- **[bug] División por cero sin proteger en cuadro_principal y ganaron_perdieron** — los porcentajes (`pct_stros`, `pct_gastos`, `pct_result`, `pct_rt`, `pct_rf`) no usan `iif(... = 0, 0, ...)`. Devuelven `NULL` si una compañía tiene `primas_devengadas = 0`. Otras queries del proyecto sí lo manejan. Unificar.
+- **[bug] Conceptos sin mapeo en `parametros_reportes` devuelven 0 silenciosamente** — el web UI permite crear conceptos en `conceptos_reportes` pero no fuerza su mapeo. El cálculo loggea `warning` pero no falla. Validar al insertar (o al menos surface el warning como error en la UI).
+
+### Mejoras
+
+- **[mejora] Tablas `*_corregida_actual` sin columna `periodo`** — esta es la limitación más impactante para automatización (ver `docs/LIMITACIONES_PIPELINE.md`). Agregar columna `periodo` permitiría detectar tablas desactualizadas con un simple `SELECT DISTINCT periodo`.
+- **[mejora] Validación de período débil en endpoints web** — `app/routes/data_processing.py:577` (`/api/generate-all-reports`) y `data_processing.py:660` (`/api/compare-csv-reports`) sólo validan `len(periodo) == 6`. Deberían usar `modules/common.py::validate_period`.
+- **[mejora] `validate_period` con rango de años hardcoded** — `modules/common.py:36` acepta sólo `2020 ≤ año ≤ 2030`. Mover a constantes o derivar de `MIN/MAX(periodo)` en `datos_balance`.
+- **[mejora] Paths absolutos hardcoded en scripts de carga inicial**:
+  - `initial_scripts/create_ipc_table.py:32` → `/Users/diegofrigerio/...`
+  - `initial_scripts/create_parametros_reportes.py:10` → `/Users/diego.frigerio/...` (notar **username distinto**: `diegofrigerio` vs `diego.frigerio`)
+  - Mover a variables de entorno o argumentos CLI.
+- **[mejora] Fórmula de período inicial duplicada en 3 archivos** — `int(f"{año-2}00")` aparece en `crea_tabla_ultimos_periodos.py:35`, `crea_tabla_subramos.py:201`, `crea_tabla_ramos.py:209`. Centralizar en `modules/common.py`.
+- **[mejora] Subprocess timeouts hardcoded** — `data_processing.py` tiene `timeout=300` (CSV) y `timeout=600` (Excel) hardcoded. Mover a config.
+- **[mejora] Web UI sin "correr pipeline completo"** — los pasos están en endpoints separados. Agregar un endpoint que encadene `crea_tabla_ultimos_periodos → crea_tabla_subramos → crea_tabla_ramos → crea_tabla_otros_conceptos → 3 corregidas → reportes` con manejo de errores y rollback.
+- **[mejora] `/api/create-subramos` no es atómico** — corre 3 módulos en serie. Si falla el segundo, queda inconsistencia (la primera tabla ya regenerada con el período nuevo, las otras dos con el período viejo). Envolver en transacción o agregar verificación post-corrida.
+- **[mejora] `LogCapture` puede perder logs iniciales** — `data_processing.py:41-73` enchufa el handler después de importar módulos que ya pueden haber llamado a `logging.basicConfig()`. Resultado: algunos logs iniciales no aparecen en la UI.
