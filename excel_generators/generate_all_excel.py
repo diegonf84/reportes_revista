@@ -5,6 +5,7 @@ import time
 
 # Import all Excel generator functions
 from apertura_por_subramos import generate_apertura_subramo_excel
+from apertura_por_subramos_comparativo import generate_apertura_subramo_comparativo_excel
 from cuadro_nuevo import generate_cuadro_nuevo_excel
 from cuadro_principal import generate_cuadro_principal_excel
 from detalle_gastos import generate_detalle_gastos_excel
@@ -29,6 +30,7 @@ def generate_all_excel_reports(period: str) -> None:
     # Lista de generadores con nombres descriptivos
     generators = [
         ("Apertura por Subramos", generate_apertura_subramo_excel),
+        ("Apertura por Subramos Comparativo", generate_apertura_subramo_comparativo_excel),
         ("Cuadro Nuevo", generate_cuadro_nuevo_excel),
         ("Cuadro Principal", generate_cuadro_principal_excel),
         ("Detalle Gastos", generate_detalle_gastos_excel),

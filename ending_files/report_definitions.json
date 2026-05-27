@@ -132,6 +132,41 @@
       "separator": ";",
       "decimal": ","
     },
+
+    "apertura_por_subramo_comparativo": {
+      "query": [
+        "WITH base AS (",
+        "    SELECT c.nombre_corto, c.cod_cia, r.subramo_denominacion, ",
+        "           SUM(b.primas_emitidas) as primas, ",
+        "           SUM(b.primas_emitidas_anterior) as primas_anterior ",
+        "    FROM base_subramos_corregida_actual b ",
+        "    LEFT JOIN datos_companias c ON b.cod_cia = c.cod_cia ",
+        "    LEFT JOIN datos_ramos_subramos r ON r.cod_subramo = b.cod_subramo ",
+        "    GROUP BY 1, 2, 3",
+        "), ",
+        "totales_subramo AS (",
+        "    SELECT subramo_denominacion, SUM(primas) as total_subramo ",
+        "    FROM base ",
+        "    GROUP BY subramo_denominacion",
+        "), ",
+        "porcentajes AS (",
+        "    SELECT t1.subramo_denominacion, t1.nombre_corto, t1.cod_cia, t1.primas, t1.primas_anterior, ",
+        "           round(iif(t1.primas_anterior=0, 0, ((t1.primas/t1.primas_anterior)-1)*100), 2) as variacion, ",
+        "           (t1.primas * 100.0 / t2.total_subramo) as porcentaje, ",
+        "           SUM(t1.primas * 100.0 / t2.total_subramo) OVER (",
+        "               PARTITION BY t1.subramo_denominacion ",
+        "               ORDER BY t1.primas DESC",
+        "           ) as porcentaje_acumulado ",
+        "    FROM base t1 ",
+        "    JOIN totales_subramo t2 ON t1.subramo_denominacion = t2.subramo_denominacion",
+        ") ",
+        "SELECT * FROM porcentajes ",
+        "ORDER BY subramo_denominacion, primas DESC"
+      ],
+      "int_columns": ["primas", "primas_anterior"],
+      "separator": ";",
+      "decimal": ","
+    },
     
     "primas_cedidas_reaseguro": {
       "query": [
