@@ -129,6 +129,24 @@ class UploadMDBForm(FlaskForm):
     submit = SubmitField('Subir Archivo', render_kw={'class': 'btn btn-success'})
 
 
+class ReloadPeriodForm(FlaskForm):
+    """Formulario para recargar un período existente desde un nuevo archivo ZIP."""
+    mdb_file = FileField(
+        'Archivo ZIP actualizado',
+        validators=[
+            FileRequired('Selecciona un archivo'),
+            FileAllowed(['zip'], 'Solo se permiten archivos ZIP')
+        ],
+        render_kw={
+            'class': 'form-control',
+            'accept': '.zip',
+            'id': 'mdb_file_reload'
+        }
+    )
+
+    submit = SubmitField('Subir y Comparar', render_kw={'class': 'btn btn-warning'})
+
+
 class ReportGenerationForm(FlaskForm):
     """Formulario para generar todos los reportes CSV y Excel."""
     periodo = IntegerField(

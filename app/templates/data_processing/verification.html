@@ -176,6 +176,68 @@
             </div>
         </div>
     </div>
+
+    <!-- Reload Period Section -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-arrow-repeat"></i> Recargar Período Existente
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">
+                        Usá esta sección cuando necesités reemplazar los datos de un período ya cargado (por ejemplo, si una compañía faltaba y se actualizó el archivo fuente).
+                        Subí el nuevo archivo, revisá la comparación de compañías y confirmá la recarga.
+                    </p>
+
+                    <form id="reload-form" enctype="multipart/form-data">
+                        {{ reload_form.hidden_tag() }}
+                        <div class="mb-3">
+                            {{ reload_form.mdb_file.label(class="form-label") }}
+                            {{ reload_form.mdb_file() }}
+                            <div class="form-text">
+                                <strong>Formato requerido:</strong> YYYY-P.zip (ej: 2025-1.zip). El período debe existir previamente en la base de datos.
+                            </div>
+                        </div>
+                        <div class="d-grid">
+                            {{ reload_form.submit(id="btn-reload-compare") }}
+                        </div>
+                    </form>
+
+                    <!-- Comparison Results -->
+                    <div id="reload-comparison" class="d-none mt-4">
+                        <hr>
+                        <h6><i class="bi bi-bar-chart"></i> Comparación de Compañías</h6>
+                        <div id="reload-comparison-content"></div>
+
+                        <div class="mt-3 d-flex gap-2">
+                            <button id="btn-confirm-reload" class="btn btn-danger">
+                                <i class="bi bi-check-circle"></i> Sí, recargar período
+                            </button>
+                            <button id="btn-cancel-reload" class="btn btn-secondary">
+                                <i class="bi bi-x-circle"></i> No, cancelar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Reload Logs -->
+                    <div id="reload-logs-container" class="d-none mt-4">
+                        <hr>
+                        <h6><i class="bi bi-terminal"></i> Logs de Recarga</h6>
+                        <div id="reload-logs-progress" class="d-none mb-2">
+                            <div class="d-flex align-items-center">
+                                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                                <span>Recargando período...</span>
+                            </div>
+                        </div>
+                        <div id="reload-logs-content"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- JavaScript -->
@@ -519,6 +581,144 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(error => {
             hideProgress();
             displayError('Error de conexión: ' + error.message);
+            showAlert('danger', 'Error de conexión');
+        });
+    });
+
+    // Reload Period Form
+    let reloadPeriodo = null;
+
+    document.getElementById('reload-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const fileInput = this.querySelector('input[type="file"]');
+        if (!fileInput || !fileInput.files.length) {
+            showAlert('warning', 'Seleccioná un archivo para comparar');
+            return;
+        }
+
+        const formData = new FormData(this);
+        document.getElementById('btn-reload-compare').disabled = true;
+        document.getElementById('reload-comparison').classList.add('d-none');
+        document.getElementById('reload-logs-container').classList.add('d-none');
+        showProgress('Subiendo archivo y comparando compañías...');
+
+        fetch('/data-processing/api/upload-and-compare-period', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideProgress();
+            document.getElementById('btn-reload-compare').disabled = false;
+
+            if (!data.success) {
+                showAlert('danger', data.error);
+                return;
+            }
+
+            reloadPeriodo = data.periodo;
+
+            let html = `<div class="table-responsive mb-3">
+                <table class="table table-sm table-bordered">
+                    <tbody>
+                        <tr><th>Período</th><td><code>${data.periodo}</code></td></tr>
+                        <tr><th>Archivo</th><td><code>${data.filename}</code></td></tr>
+                        <tr><th>Compañías en base de datos actual</th><td><strong>${data.companies_in_db}</strong></td></tr>
+                        <tr><th>Compañías en archivo nuevo</th><td><strong>${data.companies_in_file}</strong></td></tr>
+                    </tbody>
+                </table>
+            </div>`;
+
+            if (data.new_companies.length > 0) {
+                html += `<div class="alert alert-success py-2">
+                    <strong>Compañías nuevas en el archivo (${data.new_companies.length}):</strong>
+                    <ul class="mb-0 mt-1">`;
+                data.new_companies.forEach(c => {
+                    html += `<li><code>${escapeHtml(c.cod)}</code> — ${escapeHtml(c.nombre)}</li>`;
+                });
+                html += `</ul></div>`;
+            }
+
+            if (data.missing_companies.length > 0) {
+                html += `<div class="alert alert-warning py-2">
+                    <strong>Compañías que ya no aparecen en el archivo (${data.missing_companies.length}):</strong>
+                    <ul class="mb-0 mt-1">`;
+                data.missing_companies.forEach(c => {
+                    html += `<li><code>${escapeHtml(c.cod)}</code> — ${escapeHtml(c.nombre)}</li>`;
+                });
+                html += `</ul></div>`;
+            }
+
+            if (data.new_companies.length === 0 && data.missing_companies.length === 0) {
+                html += `<div class="alert alert-info py-2">Las compañías coinciden exactamente entre la base de datos y el archivo nuevo.</div>`;
+            }
+
+            document.getElementById('reload-comparison-content').innerHTML = html;
+            document.getElementById('reload-comparison').classList.remove('d-none');
+        })
+        .catch(error => {
+            hideProgress();
+            document.getElementById('btn-reload-compare').disabled = false;
+            showAlert('danger', 'Error de conexión: ' + error.message);
+        });
+    });
+
+    document.getElementById('btn-cancel-reload').addEventListener('click', function() {
+        reloadPeriodo = null;
+        document.getElementById('reload-comparison').classList.add('d-none');
+        document.getElementById('reload-logs-container').classList.add('d-none');
+        document.getElementById('reload-form').reset();
+        showAlert('info', 'Recarga cancelada.');
+    });
+
+    document.getElementById('btn-confirm-reload').addEventListener('click', function() {
+        if (!reloadPeriodo) return;
+
+        this.disabled = true;
+        document.getElementById('btn-cancel-reload').disabled = true;
+        document.getElementById('reload-logs-container').classList.remove('d-none');
+        document.getElementById('reload-logs-progress').classList.remove('d-none');
+        document.getElementById('reload-logs-content').innerHTML = '';
+
+        fetch('/data-processing/api/confirm-reload-period', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({periodo: reloadPeriodo})
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('reload-logs-progress').classList.add('d-none');
+            document.getElementById('btn-confirm-reload').disabled = false;
+            document.getElementById('btn-cancel-reload').disabled = false;
+
+            let logsHtml = '';
+            if (data.logs && data.logs.length > 0) {
+                logsHtml = `<div class="bg-dark text-light p-3 rounded" style="font-family: 'Courier New', monospace; font-size: 0.9rem; max-height: 300px; overflow-y: auto;">`;
+                data.logs.forEach(log => {
+                    if (log.trim()) logsHtml += `<div>${escapeHtml(log)}</div>`;
+                });
+                logsHtml += `</div>`;
+            }
+
+            if (data.success) {
+                logsHtml = `<div class="alert alert-success">${escapeHtml(data.message)}</div>` + logsHtml;
+                showAlert('success', data.message);
+                reloadPeriodo = null;
+                document.getElementById('reload-comparison').classList.add('d-none');
+                document.getElementById('reload-form').reset();
+            } else {
+                logsHtml = `<div class="alert alert-danger">${escapeHtml(data.error)}</div>` + logsHtml;
+                showAlert('danger', 'Error al recargar: ' + data.error);
+            }
+
+            document.getElementById('reload-logs-content').innerHTML = logsHtml;
+        })
+        .catch(error => {
+            document.getElementById('reload-logs-progress').classList.add('d-none');
+            document.getElementById('btn-confirm-reload').disabled = false;
+            document.getElementById('btn-cancel-reload').disabled = false;
+            document.getElementById('reload-logs-content').innerHTML = `<div class="alert alert-danger">Error de conexión: ${escapeHtml(error.message)}</div>`;
             showAlert('danger', 'Error de conexión');
         });
     });

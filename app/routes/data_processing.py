@@ -8,9 +8,10 @@ from pathlib import Path
 from werkzeug.utils import secure_filename
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
 from app.forms.processing_forms import (
-    CheckCompaniesForm, LoadDataForm, CreateRecentPeriodsForm, 
-    CreateBaseSubramosForm, CreateFinancialConceptsForm, CreateSubramosForm, 
-    CheckPeriodsForm, UploadMDBForm, ReportGenerationForm, ConceptoForm
+    CheckCompaniesForm, LoadDataForm, CreateRecentPeriodsForm,
+    CreateBaseSubramosForm, CreateFinancialConceptsForm, CreateSubramosForm,
+    CheckPeriodsForm, UploadMDBForm, ReportGenerationForm, ConceptoForm,
+    ReloadPeriodForm
 )
 
 # Importar módulos existentes
@@ -21,9 +22,10 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from modules.check_cantidad_cias import main as check_companies_main
+from modules.check_cantidad_cias import main as check_companies_main, get_companies_from_file, get_companies_from_db
 from modules.check_ultimos_periodos import print_periods_info, list_available_periods as list_periods
 from modules.carga_base_principal import main as load_data_main
+from utils.db_functions import delete_period, list_ultimos_periodos
 from modules.crea_tabla_ultimos_periodos import create_recent_periods_table
 from modules.crea_tabla_subramos import main as create_base_subramos_main
 from modules.crea_tabla_ramos import main as create_base_ramos_main
@@ -79,11 +81,13 @@ def data_verification():
     check_companies_form = CheckCompaniesForm()
     check_periods_form = CheckPeriodsForm()
     upload_form = UploadMDBForm()
-    
-    return render_template('data_processing/verification.html', 
+    reload_form = ReloadPeriodForm()
+
+    return render_template('data_processing/verification.html',
                          check_companies_form=check_companies_form,
                          check_periods_form=check_periods_form,
-                         upload_form=upload_form)
+                         upload_form=upload_form,
+                         reload_form=reload_form)
 
 
 @data_processing_bp.route('/data-loading')
@@ -932,5 +936,123 @@ def delete_concepto(concepto_id):
     
     except Exception as e:
         flash(f'Error al eliminar concepto: {str(e)}', 'error')
-    
+
     return redirect(url_for('data_processing.list_conceptos'))
+
+
+@data_processing_bp.route('/api/upload-and-compare-period', methods=['POST'])
+def api_upload_and_compare_period():
+    """Sube un archivo ZIP para un período existente y compara compañías."""
+    try:
+        form = ReloadPeriodForm()
+
+        if not form.validate_on_submit():
+            errors = [e for field_errors in form.errors.values() for e in field_errors]
+            return jsonify({'success': False, 'error': 'Errores de validación: ' + ', '.join(errors)}), 400
+
+        file = form.mdb_file.data
+        filename = secure_filename(file.filename)
+
+        if not filename.lower().endswith('.zip'):
+            return jsonify({'success': False, 'error': 'El archivo debe ser un ZIP'}), 400
+
+        name_without_ext = filename[:-4]
+        if name_without_ext.count('-') != 1:
+            return jsonify({'success': False, 'error': 'El archivo debe tener formato YYYY-P.zip (ej: 2025-1.zip)'}), 400
+
+        try:
+            year_str, quarter_str = name_without_ext.split('-')
+            year = int(year_str)
+            quarter = int(quarter_str)
+            if year < 2020 or year > 2030 or quarter < 1 or quarter > 4:
+                raise ValueError("Fuera de rango")
+            periodo = int(f"{year}{quarter:02d}")
+        except (ValueError, IndexError):
+            return jsonify({'success': False, 'error': 'Formato inválido. Use YYYY-P.zip donde YYYY es el año y P el trimestre (1-4)'}), 400
+
+        # Verificar que el período ya exista en la base de datos
+        from dotenv import load_dotenv as _load_dotenv
+        _load_dotenv()
+        database_path = os.getenv('DATABASE')
+        periods_in_db = list_ultimos_periodos(database_path)
+
+        if periodo not in periods_in_db:
+            return jsonify({
+                'success': False,
+                'error': f'El período {periodo} no existe en la base de datos. Use la carga normal para períodos nuevos.'
+            }), 400
+
+        # Guardar archivo (permite sobreescribir)
+        upload_dir = get_mdb_files_directory()
+        upload_dir.mkdir(exist_ok=True)
+        file_path = upload_dir / filename
+        file.save(str(file_path))
+
+        # Comparar compañías
+        companies_file, names_file = get_companies_from_file(periodo)
+        companies_db, names_db = get_companies_from_db(periodo)
+
+        new_companies = sorted(companies_file - companies_db)
+        missing_companies = sorted(companies_db - companies_file)
+
+        new_list = [{'cod': c, 'nombre': names_file.get(c, f'Sin nombre ({c})')} for c in new_companies]
+        missing_list = [{'cod': c, 'nombre': names_db.get(c, f'Sin nombre ({c})')} for c in missing_companies]
+
+        return jsonify({
+            'success': True,
+            'periodo': periodo,
+            'filename': filename,
+            'companies_in_db': len(companies_db),
+            'companies_in_file': len(companies_file),
+            'new_companies': new_list,
+            'missing_companies': missing_list,
+            'message': f'Comparación lista para período {periodo}: {len(companies_db)} compañías en BD, {len(companies_file)} en archivo nuevo'
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Error al comparar: {str(e)}'}), 500
+
+
+@data_processing_bp.route('/api/confirm-reload-period', methods=['POST'])
+def api_confirm_reload_period():
+    """Elimina el período de datos_balance y lo recarga desde el archivo ZIP."""
+    try:
+        data = request.get_json()
+        periodo = data.get('periodo')
+
+        if not periodo:
+            return jsonify({'success': False, 'error': 'El período es requerido'}), 400
+
+        from dotenv import load_dotenv as _load_dotenv
+        _load_dotenv()
+        database_path = os.getenv('DATABASE')
+
+        log_capture = LogCapture()
+        log_capture.start_capture()
+
+        try:
+            deleted_rows = delete_period(int(periodo), database_path)
+            logging.info(f'Período {periodo} eliminado: {deleted_rows:,} filas borradas de datos_balance')
+
+            load_data_main(int(periodo), force=True)
+
+            logs = log_capture.get_logs()
+            log_capture.stop_capture()
+
+            return jsonify({
+                'success': True,
+                'logs': logs,
+                'deleted_rows': deleted_rows,
+                'message': f'Período {periodo} recargado exitosamente ({deleted_rows:,} filas eliminadas e insertados nuevos datos)'
+            })
+
+        except Exception as e:
+            log_capture.stop_capture()
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'logs': log_capture.get_logs()
+            }), 500
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Error en la solicitud: {str(e)}'}), 400

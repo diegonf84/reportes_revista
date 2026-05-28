@@ -34,6 +34,21 @@ def load_dataframe(data: pd.DataFrame, database_path: str, table: str) -> None:
     except sqlite3.Error as e:
         print(f"Error al trabajar con la base de datos: {e}")
 
+def delete_period(periodo: int, database_path: str) -> int:
+    """
+    Elimina todos los registros de un período de datos_balance.
+
+    Args:
+        periodo (int): Período a eliminar en formato YYYYPP
+        database_path (str): Ruta al archivo de la base de datos SQLite
+
+    Returns:
+        int: Cantidad de filas eliminadas
+    """
+    with sqlite3.connect(database_path) as conn:
+        cursor = conn.execute("DELETE FROM datos_balance WHERE periodo = ?", (periodo,))
+        return cursor.rowcount
+
 def list_ultimos_periodos(database_path: str) -> List[int]:
     """
     Obtiene una lista de los valores únicos de la columna 'periodo' para los registros de los últimos 2 años.

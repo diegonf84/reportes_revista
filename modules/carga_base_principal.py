@@ -49,21 +49,22 @@ def load_and_transform_data(df: pd.DataFrame) -> pd.DataFrame:
        
     return data
 
-def main(periodo: int) -> None:
+def main(periodo: int, force: bool = False) -> None:
     """
     Función principal que procesa un archivo MDB del balance de compañías aseguradoras
     y lo carga en la base de datos SQLite.
 
     Args:
         periodo (int): Período a procesar en formato YYYYPP (ej: 202503)
+        force (bool): Si True, omite el chequeo de período ya existente
     """
     validate_period(periodo)
     load_dotenv()
     database_path = os.getenv('DATABASE')
     directorio = get_mdb_files_directory()
-    
-    # Verificar si el período ya existe
-    if periodo in list_ultimos_periodos(database_path):
+
+    # Verificar si el período ya existe (salvo que se indique force)
+    if not force and periodo in list_ultimos_periodos(database_path):
         logging.info(f'El período {periodo} ya existe en la base de datos')
         return
 
