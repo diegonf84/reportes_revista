@@ -171,7 +171,7 @@ def build_query_for_march(periods: dict) -> str:
         select *
         from base_cias_diferentes
     )
-    select * from base_final
+    select *, {periods['actual']} as periodo from base_final
     where primas_emitidas <> 0
     """
 
@@ -251,7 +251,7 @@ def build_query_for_december(periods: dict) -> str:
         select *
         from base_cias_diferentes
     )
-    select * from base_final
+    select *, {periods['actual']} as periodo from base_final
     where primas_emitidas <> 0
     """
 
@@ -340,7 +340,7 @@ def build_query_for_june(periods: dict) -> str:
         select *
         from base_cias_diferentes
     )
-    select * from base_final
+    select *, {periods['actual']} as periodo from base_final
     where primas_emitidas <> 0
     """
 
@@ -420,7 +420,7 @@ def build_query_for_september(periods: dict) -> str:
         select *
         from base_cias_diferentes
     )
-    select * from base_final
+    select *, {periods['actual']} as periodo from base_final
     where primas_emitidas <> 0
     """
 

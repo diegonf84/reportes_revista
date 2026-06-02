@@ -4,6 +4,17 @@ from openpyxl.styles import Font, Border, Side, Alignment
 import os
 import logging
 
+_QUARTER_MONTH_NAME = {1: 'MARZO', 2: 'JUNIO', 3: 'SEPTIEMBRE', 4: 'DICIEMBRE'}
+
+
+def _period_to_title(period: str) -> str:
+    year = int(period[:4])
+    quarter = int(period[4:])
+    end_month = _QUARTER_MONTH_NAME[quarter]
+    end_year = str(year)[2:]
+    start_year = str(year - 1)[2:] if quarter <= 2 else str(year)[2:]
+    return f"JULIO/{start_year} - {end_month}/{end_year}, EN MILES DE PESOS"
+
 def create_excel_ganaron_perdieron_completo(csv_path: str, output_path: str, period: str) -> None:
     """
     Genera archivo Excel completo para el reporte 'ganaron_perdieron' con todas las hojas por tipo.
@@ -34,14 +45,14 @@ def create_excel_ganaron_perdieron_completo(csv_path: str, output_path: str, per
     for tipo in tipos:
         tipo_data = df[df['tipo_cia'] == tipo].copy()
         ws = wb.create_sheet(title=tipo)
-        
-        crear_hoja_tipo(ws, tipo_data, tipo)
+
+        crear_hoja_tipo(ws, tipo_data, tipo, period)
     
     # Guardar archivo
     wb.save(output_path)
     logging.info(f"Excel completo generado con {len(tipos)} hojas en: {output_path}")
 
-def crear_hoja_tipo(ws, tipo_data, tipo_nombre):
+def crear_hoja_tipo(ws, tipo_data, tipo_nombre, period: str = ''):
     """Crea una hoja individual para un tipo de compañía"""
     
     # Configurar hoja
@@ -86,7 +97,8 @@ def crear_hoja_tipo(ws, tipo_data, tipo_nombre):
     # === ENCABEZADO FIJO ===
     ws.cell(row=current_row, column=1, value="RESULTADOS").font = title_font
     current_row += 1
-    ws.cell(row=current_row, column=1, value="JULIO/24 - MARZO/25, EN MILES DE PESOS").font = normal_font
+    period_label = _period_to_title(period) if period else ''
+    ws.cell(row=current_row, column=1, value=period_label).font = normal_font
     current_row += 2
     
     # === CUADRO 1: LAS QUE GANARON ===

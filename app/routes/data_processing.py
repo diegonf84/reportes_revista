@@ -271,19 +271,21 @@ def api_upload_mdb():
                 }), 400
             
             try:
+                import datetime as _dt
                 year_str, quarter_str = name_without_ext.split('-')
                 year = int(year_str)
                 quarter = int(quarter_str)
-                
-                if year < 2020 or year > 2030 or quarter < 1 or quarter > 4:
+                _current_year = _dt.datetime.now().year
+
+                if year < 2020 or year > _current_year + 5 or quarter < 1 or quarter > 4:
                     raise ValueError("Fuera de rango")
-                    
+
             except (ValueError, IndexError):
                 return jsonify({
                     'success': False,
                     'error': 'Formato inválido. Use YYYY-P.zip donde YYYY es el año y P el trimestre (1-4)'
                 }), 400
-            
+
             # Guardar archivo
             upload_dir = get_mdb_files_directory()
             upload_dir.mkdir(exist_ok=True)
@@ -583,7 +585,57 @@ def api_generate_all_reports():
                 'success': False,
                 'error': 'El período debe tener formato YYYYPP (6 dígitos)'
             }), 400
-        
+
+        quarter_val = int(periodo_str[4:])
+        if quarter_val < 1 or quarter_val > 4:
+            return jsonify({
+                'success': False,
+                'error': 'El trimestre debe estar entre 01 y 04'
+            }), 400
+
+        # Validar que las tablas corregidas corresponden al período solicitado
+        from dotenv import load_dotenv as _load_dotenv_rep
+        _load_dotenv_rep()
+        _database_path = os.getenv('DATABASE')
+        _corregida_tables = [
+            'base_subramos_corregida_actual',
+            'base_ramos_corregida_actual',
+            'base_cias_corregida_actual',
+        ]
+        try:
+            with sqlite3.connect(_database_path) as _conn_check:
+                for _table in _corregida_tables:
+                    _exists = _conn_check.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (_table,)
+                    ).fetchone()
+                    if not _exists:
+                        return jsonify({
+                            'success': False,
+                            'error': (
+                                f'La tabla {_table} no existe. '
+                                'Ejecute el paso "Subramos, Ramos y Compañías Corregidas" antes de generar reportes.'
+                            )
+                        }), 400
+                    _cols = [row[1] for row in _conn_check.execute(f"PRAGMA table_info({_table})").fetchall()]
+                    if 'periodo' in _cols:
+                        _table_periodo = _conn_check.execute(
+                            f"SELECT MAX(periodo) FROM {_table}"
+                        ).fetchone()[0]
+                        if str(_table_periodo) != periodo_str:
+                            return jsonify({
+                                'success': False,
+                                'error': (
+                                    f'La tabla {_table} fue generada para el período {_table_periodo}, '
+                                    f'no para {periodo_str}. '
+                                    'Regenere las tablas corregidas para el período correcto antes de generar reportes.'
+                                )
+                            }), 400
+        except sqlite3.Error as _e:
+            return jsonify({
+                'success': False,
+                'error': f'Error verificando tablas corregidas: {_e}'
+            }), 500
+
         # Obtener directorio base del proyecto
         logs = []
         
@@ -961,10 +1013,12 @@ def api_upload_and_compare_period():
             return jsonify({'success': False, 'error': 'El archivo debe tener formato YYYY-P.zip (ej: 2025-1.zip)'}), 400
 
         try:
+            import datetime as _dt2
             year_str, quarter_str = name_without_ext.split('-')
             year = int(year_str)
             quarter = int(quarter_str)
-            if year < 2020 or year > 2030 or quarter < 1 or quarter > 4:
+            _current_year2 = _dt2.datetime.now().year
+            if year < 2020 or year > _current_year2 + 5 or quarter < 1 or quarter > 4:
                 raise ValueError("Fuera de rango")
             periodo = int(f"{year}{quarter:02d}")
         except (ValueError, IndexError):

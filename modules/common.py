@@ -5,6 +5,7 @@ This module provides shared functionality for period validation,
 file handling, and other common operations used across multiple modules.
 """
 
+import datetime
 import logging
 from pathlib import Path
 from typing import Optional
@@ -33,8 +34,9 @@ def validate_period(periodo: int) -> None:
     year = int(periodo_str[:4])
     quarter = int(periodo_str[4:])
     
-    if year < 2020 or year > 2030:
-        raise ValueError(f"Year must be between 2020-2030, received: {year}")
+    current_year = datetime.datetime.now().year
+    if year < 2020 or year > current_year + 5:
+        raise ValueError(f"Year must be between 2020 and {current_year + 5}, received: {year}")
     
     if quarter < 1 or quarter > 4:
         raise ValueError(f"Quarter must be between 1-4, received: {quarter}")
@@ -117,6 +119,19 @@ def setup_logging(level: int = logging.INFO) -> None:
         level=level, 
         format='%(asctime)s - %(levelname)s - %(message)s'
     )
+
+
+def get_periodo_inicial(year: int) -> int:
+    """
+    Returns the initial period (2 years back) for table filtering.
+
+    Args:
+        year (int): Reference year
+
+    Returns:
+        int: Period in format YYYY00 representing 2 years prior
+    """
+    return int(f"{year - 2}00")
 
 
 def format_number(num: int) -> str:

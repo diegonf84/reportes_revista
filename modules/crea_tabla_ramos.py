@@ -25,7 +25,7 @@ import os
 import argparse
 from dotenv import load_dotenv
 from typing import Dict, Tuple, Optional
-from modules.common import setup_logging, format_number
+from modules.common import setup_logging, format_number, get_periodo_inicial
 from utils.db_manager import db_manager
 
 logger = logging.getLogger(__name__)
@@ -203,12 +203,12 @@ def main(periodo_referencia: Optional[int] = None) -> None:
     if periodo_referencia is None:
         # DEFAULT: Usar año actual
         anio_actual = datetime.datetime.now().year
-        periodo_inicial = int(f"{anio_actual - 2}00")
+        periodo_inicial = get_periodo_inicial(anio_actual)
         logger.info(f"Modo automático: usando período de referencia = año actual ({anio_actual})")
     else:
         # SPECIFIED: Usar período especificado
         year = int(str(periodo_referencia)[:4])
-        periodo_inicial = int(f"{year - 2}00")
+        periodo_inicial = get_periodo_inicial(year)
         logger.info(f"Modo manual: usando período de referencia = {periodo_referencia}")
 
     logger.info(f"Creating base_ramos table with data from period: {periodo_inicial}")
