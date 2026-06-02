@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 import sqlite3
 import logging
 from typing import Optional
-from modules.common import validate_period, setup_logging
+from modules.common import validate_period, setup_logging, get_periodo_inicial
 from utils.db_manager import db_manager
 
 def create_recent_periods_table(periodo_referencia: Optional[int] = None) -> None:
@@ -32,12 +32,12 @@ def create_recent_periods_table(periodo_referencia: Optional[int] = None) -> Non
     if periodo_referencia is None:
         # DEFAULT: Usar año actual
         anio_actual = datetime.datetime.now().year
-        periodo_inicial = int(f"{anio_actual - 2}00")
+        periodo_inicial = get_periodo_inicial(anio_actual)
         logging.info(f"Modo automático: usando período de referencia = año actual ({anio_actual})")
     else:
         # SPECIFIED: Usar período especificado
         year = int(str(periodo_referencia)[:4])
-        periodo_inicial = int(f"{year - 2}00")
+        periodo_inicial = get_periodo_inicial(year)
         logging.info(f"Modo manual: usando período de referencia = {periodo_referencia}")
 
     logging.info(f"Filtrando datos desde el período: {periodo_inicial}")

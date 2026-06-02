@@ -189,10 +189,12 @@ def build_query_for_march(periods: dict) -> str:
         GROUP by cod_cia,cod_subramo
     ),
     base_cias_comunes as (
-        select a.cod_cia, a.cod_subramo, a.primas_emit_actual as primas_emitidas, 
-        iif(b.primas_emit_anterior is null, 0, b.primas_emit_anterior) as primas_emitidas_anterior
+        select coalesce(a.cod_cia, b.cod_cia) as cod_cia,
+        coalesce(a.cod_subramo, b.cod_subramo) as cod_subramo,
+        coalesce(a.primas_emit_actual, 0) as primas_emitidas,
+        coalesce(b.primas_emit_anterior, 0) as primas_emitidas_anterior
         from primas_actuales_resto a
-        left join primas_anteriores_resto b on a.cod_cia = b.cod_cia and a.cod_subramo = b.cod_subramo
+        full outer join primas_anteriores_resto b on a.cod_cia = b.cod_cia and a.cod_subramo = b.cod_subramo
     ),
     base_final as (
         select *
@@ -201,8 +203,8 @@ def build_query_for_march(periods: dict) -> str:
         select *
         from base_cias_diferentes
     )
-    select * from base_final
-    where primas_emitidas <> 0    
+    select *, {periods['actual']} as periodo from base_final
+    where primas_emitidas <> 0
     """
 
 
@@ -268,10 +270,12 @@ def build_query_for_december(periods: dict) -> str:
         GROUP by cod_cia,cod_subramo
     ),
     base_cias_comunes as (
-        select a.cod_cia, a.cod_subramo, a.primas_emit_actual as primas_emitidas, 
-        iif(b.primas_emit_anterior is null, 0, b.primas_emit_anterior) as primas_emitidas_anterior
+        select coalesce(a.cod_cia, b.cod_cia) as cod_cia,
+        coalesce(a.cod_subramo, b.cod_subramo) as cod_subramo,
+        coalesce(a.primas_emit_actual, 0) as primas_emitidas,
+        coalesce(b.primas_emit_anterior, 0) as primas_emitidas_anterior
         from primas_actuales_resto a
-        left join primas_anteriores_resto b on a.cod_cia = b.cod_cia and a.cod_subramo = b.cod_subramo
+        full outer join primas_anteriores_resto b on a.cod_cia = b.cod_cia and a.cod_subramo = b.cod_subramo
     ),
     base_final as (
         select *
@@ -280,8 +284,8 @@ def build_query_for_december(periods: dict) -> str:
         select *
         from base_cias_diferentes
     )
-    select * from base_final
-    where primas_emitidas <> 0    
+    select *, {periods['actual']} as periodo from base_final
+    where primas_emitidas <> 0
     """
 
 
@@ -356,10 +360,12 @@ def build_query_for_june(periods: dict) -> str:
         GROUP by cod_cia,cod_subramo
     ),
     base_cias_comunes as (
-        select a.cod_cia, a.cod_subramo, a.primas_emit_actual as primas_emitidas, 
-        iif(b.primas_emit_anterior is null, 0, b.primas_emit_anterior) as primas_emitidas_anterior
+        select coalesce(a.cod_cia, b.cod_cia) as cod_cia,
+        coalesce(a.cod_subramo, b.cod_subramo) as cod_subramo,
+        coalesce(a.primas_emit_actual, 0) as primas_emitidas,
+        coalesce(b.primas_emit_anterior, 0) as primas_emitidas_anterior
         from primas_actuales_resto a
-        left join primas_anteriores_resto b on a.cod_cia = b.cod_cia and a.cod_subramo = b.cod_subramo
+        full outer join primas_anteriores_resto b on a.cod_cia = b.cod_cia and a.cod_subramo = b.cod_subramo
     ),
     base_final as (
         select *
@@ -368,8 +374,8 @@ def build_query_for_june(periods: dict) -> str:
         select *
         from base_cias_diferentes
     )
-    select * from base_final
-    where primas_emitidas <> 0    
+    select *, {periods['actual']} as periodo from base_final
+    where primas_emitidas <> 0
     """
 
 
@@ -435,10 +441,12 @@ def build_query_for_september(periods: dict) -> str:
         GROUP by cod_cia,cod_subramo
     ),
     base_cias_comunes as (
-        select a.cod_cia, a.cod_subramo, a.primas_emit_actual as primas_emitidas,
-        iif(b.primas_emit_anterior is null, 0, b.primas_emit_anterior) as primas_emitidas_anterior
+        select coalesce(a.cod_cia, b.cod_cia) as cod_cia,
+        coalesce(a.cod_subramo, b.cod_subramo) as cod_subramo,
+        coalesce(a.primas_emit_actual, 0) as primas_emitidas,
+        coalesce(b.primas_emit_anterior, 0) as primas_emitidas_anterior
         from primas_actuales_resto a
-        left join primas_anteriores_resto b on a.cod_cia = b.cod_cia and a.cod_subramo = b.cod_subramo
+        full outer join primas_anteriores_resto b on a.cod_cia = b.cod_cia and a.cod_subramo = b.cod_subramo
     ),
     base_final as (
         select *
@@ -447,7 +455,7 @@ def build_query_for_september(periods: dict) -> str:
         select *
         from base_cias_diferentes
     )
-    select * from base_final
+    select *, {periods['actual']} as periodo from base_final
     where primas_emitidas <> 0
     """
 

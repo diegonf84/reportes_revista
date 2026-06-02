@@ -316,7 +316,7 @@ document.addEventListener('DOMContentLoaded', function() {
         progressContainer.classList.add('d-none');
     }
 
-    function showAlert(type, message) {
+    function showAlert(type, message, autoDismissMs = 5000) {
         const alertDiv = document.createElement('div');
         alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
         alertDiv.innerHTML = `
@@ -324,15 +324,22 @@ document.addEventListener('DOMContentLoaded', function() {
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         `;
         alertContainer.appendChild(alertDiv);
-        
-        setTimeout(() => {
-            if (alertDiv && alertDiv.parentNode) {
-                alertDiv.remove();
-            }
-        }, 5000);
+
+        if (autoDismissMs > 0) {
+            setTimeout(() => {
+                if (alertDiv && alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, autoDismissMs);
+        }
+    }
+
+    function scrollToResults() {
+        resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function displayResults(data, operation) {
+        scrollToResults();
         let html = `<div class="mb-3">
             <h6><i class="bi bi-check-circle text-success"></i> ${operation} completado exitosamente</h6>
             <p class="text-success mb-0">${escapeHtml(data.message)}</p>
@@ -349,26 +356,29 @@ document.addEventListener('DOMContentLoaded', function() {
         if (data.logs && data.logs.length > 0) {
             html += `<div class="mb-3">
                 <h6>Logs de procesamiento:</h6>
-                <div class="bg-dark text-light p-3 rounded" style="font-family: 'Courier New', monospace; font-size: 0.9rem; max-height: 400px; overflow-y: auto;">`;
-            
+                <div id="log-box" class="bg-dark text-light p-3 rounded" style="font-family: 'Courier New', monospace; font-size: 0.9rem; max-height: 400px; overflow-y: auto;">`;
+
             data.logs.forEach(log => {
                 if (log.trim()) {
                     let logClass = '';
                     if (log.includes('ERROR')) logClass = 'text-danger';
                     else if (log.includes('WARNING')) logClass = 'text-warning';
                     else if (log.includes('INFO')) logClass = 'text-info';
-                    
+
                     html += `<div class="${logClass}">${escapeHtml(log)}</div>`;
                 }
             });
-            
+
             html += `</div></div>`;
         }
 
         resultsContainer.innerHTML = html;
+        const logBox = document.getElementById('log-box');
+        if (logBox) logBox.scrollTop = logBox.scrollHeight;
     }
 
     function displayError(error, logs = []) {
+        scrollToResults();
         let html = `<div class="alert alert-danger">
             <h6><i class="bi bi-exclamation-triangle"></i> Error en el procesamiento</h6>
             <p class="mb-0">${escapeHtml(error)}</p>
@@ -398,8 +408,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function makeRequest(endpoint, data, operation) {
+        alertContainer.innerHTML = '';
+        resultsContainer.innerHTML = '';
         showProgress(`Ejecutando ${operation}...`);
-        
+
         fetch(endpoint, {
             method: 'POST',
             headers: {

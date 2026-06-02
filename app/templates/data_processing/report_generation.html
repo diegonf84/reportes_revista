@@ -306,7 +306,7 @@ document.addEventListener('DOMContentLoaded', function() {
         excelLocation.textContent = data.excel_directory;
     }
 
-    function showAlert(type, message) {
+    function showAlert(type, message, autoDismissMs = 8000) {
         const alertDiv = document.createElement('div');
         alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
         alertDiv.innerHTML = `
@@ -314,22 +314,28 @@ document.addEventListener('DOMContentLoaded', function() {
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         `;
         alertContainer.appendChild(alertDiv);
-        
-        setTimeout(() => {
-            if (alertDiv && alertDiv.parentNode) {
-                alertDiv.remove();
-            }
-        }, 8000);
+
+        if (autoDismissMs > 0) {
+            setTimeout(() => {
+                if (alertDiv && alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, autoDismissMs);
+        }
+    }
+
+    function scrollToResults() {
+        document.getElementById('results-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function displayLogs(data) {
         let html = '';
-        
+
         if (data.logs && data.logs.length > 0) {
             html = `<div class="mb-3">
                 <h6>Registro del procesamiento:</h6>
-                <div class="bg-dark text-light p-3 rounded" style="font-family: 'Courier New', monospace; font-size: 0.9rem; max-height: 500px; overflow-y: auto;">`;
-            
+                <div id="log-box" class="bg-dark text-light p-3 rounded" style="font-family: 'Courier New', monospace; font-size: 0.9rem; max-height: 500px; overflow-y: auto;">`;
+
             data.logs.forEach(log => {
                 if (log.trim()) {
                     let logClass = '';
@@ -337,15 +343,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     else if (log.includes('⚠️') || log.includes('WARNING')) logClass = 'text-warning';
                     else if (log.includes('✅') || log.includes('🚀')) logClass = 'text-success';
                     else if (log.includes('INFO')) logClass = 'text-info';
-                    
+
                     html += `<div class="${logClass}">${escapeHtml(log)}</div>`;
                 }
             });
-            
+
             html += `</div></div>`;
         }
 
         resultsContainer.innerHTML = html;
+        scrollToResults();
+        const logBox = document.getElementById('log-box');
+        if (logBox) logBox.scrollTop = logBox.scrollHeight;
     }
 
     function displayError(error, logs = []) {
@@ -357,19 +366,22 @@ document.addEventListener('DOMContentLoaded', function() {
         if (logs && logs.length > 0) {
             html += `<div class="mt-3">
                 <h6>Registro de errores:</h6>
-                <div class="bg-dark text-light p-3 rounded" style="font-family: 'Courier New', monospace; font-size: 0.9rem; max-height: 400px; overflow-y: auto;">`;
-            
+                <div id="log-box" class="bg-dark text-light p-3 rounded" style="font-family: 'Courier New', monospace; font-size: 0.9rem; max-height: 400px; overflow-y: auto;">`;
+
             logs.forEach(log => {
                 if (log.trim()) {
                     html += `<div class="text-danger">${escapeHtml(log)}</div>`;
                 }
             });
-            
+
             html += `</div></div>`;
         }
 
         resultsContainer.innerHTML = html;
         hideProgress();
+        scrollToResults();
+        const logBox = document.getElementById('log-box');
+        if (logBox) logBox.scrollTop = logBox.scrollHeight;
     }
 
     function escapeHtml(text) {
@@ -396,10 +408,11 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Clear previous results
+        // Clear previous state
+        alertContainer.innerHTML = '';
         resultsContainer.innerHTML = '';
         successContainer.classList.add('d-none');
-        
+
         // Start process
         showProgress('Iniciando generación de reportes...');
         showAlert('info', 'Proceso iniciado. Por favor espere...');
@@ -650,6 +663,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         // Clear previous results
+        alertContainer.innerHTML = '';
         comparisonResultsContainer.innerHTML = '';
 
         // Start process
