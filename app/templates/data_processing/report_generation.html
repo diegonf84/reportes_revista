@@ -19,7 +19,7 @@
     </div>
 
     <!-- Alert Messages -->
-    <div id="alert-container"></div>
+    <div id="alert-container" hidden></div>
 
     <!-- Process Flow Info -->
     <div class="row mb-4">
@@ -278,7 +278,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const successContainer = document.getElementById('success-container');
     const progressText = document.getElementById('progress-text');
     const resultsContainer = document.getElementById('results-container');
-    const alertContainer = document.getElementById('alert-container');
+    const alertContainer = null; // legacy reference; alerts now go through AppAlerts
     const successMessage = document.getElementById('success-message');
     const csvLocation = document.getElementById('csv-location');
     const excelLocation = document.getElementById('excel-location');
@@ -296,32 +296,83 @@ document.addEventListener('DOMContentLoaded', function() {
     function showSuccess(data) {
         hideProgress();
         successContainer.classList.remove('d-none');
-        
+
         successMessage.innerHTML = `
-            <p class="mb-2">${escapeHtml(data.message)}</p>
+            <p class="mb-2">${AppAlerts.escapeHtml(data.message)}</p>
             <small><strong>Período:</strong> ${data.periodo}</small>
         `;
-        
+
         csvLocation.textContent = data.csv_directory;
         excelLocation.textContent = data.excel_directory;
+
+        // Inventory of generated files (Phase 4 — item 7).
+        const inventoryHtml = renderInventory(data);
+        if (inventoryHtml) {
+            successMessage.insertAdjacentHTML('beforeend', inventoryHtml);
+        }
+
+        // Affordance to open the output folder (Phase 4 — item 8).
+        if (data.excel_directory) {
+            successMessage.insertAdjacentHTML(
+                'beforeend',
+                `<div class="mt-2"><button type="button" class="btn btn-sm btn-outline-primary" data-open-folder="${AppAlerts.escapeHtml(data.excel_directory)}"><i class="bi bi-folder2-open"></i> Abrir carpeta Excel</button></div>`
+            );
+        }
+        if (data.csv_directory && data.csv_directory !== data.excel_directory) {
+            successMessage.insertAdjacentHTML(
+                'beforeend',
+                `<div class="mt-1"><button type="button" class="btn btn-sm btn-outline-secondary" data-open-folder="${AppAlerts.escapeHtml(data.csv_directory)}"><i class="bi bi-folder2-open"></i> Abrir carpeta CSV</button></div>`
+            );
+        }
+        bindOpenFolderButtons(successMessage);
     }
 
-    function showAlert(type, message, autoDismissMs = 8000) {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
-        alertDiv.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-        alertContainer.appendChild(alertDiv);
+    function renderInventory(data) {
+        const csvFiles = data.csv_files || [];
+        const excelFiles = data.excel_files || [];
+        if (!csvFiles.length && !excelFiles.length) return '';
+        const formatSize = (bytes) => {
+            if (bytes < 1024) return `${bytes} B`;
+            if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+            return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+        };
+        const renderList = (title, files) => {
+            if (!files.length) return '';
+            const items = files
+                .map((f) => `<li><code>${AppAlerts.escapeHtml(f.name)}</code> <small class="text-muted">(${formatSize(f.size_bytes)})</small></li>`)
+                .join('');
+            return `<div class="mt-2"><strong>${title} (${files.length}):</strong><ul class="small mb-0">${items}</ul></div>`;
+        };
+        return renderList('Archivos CSV', csvFiles) + renderList('Archivos Excel', excelFiles);
+    }
 
-        if (autoDismissMs > 0) {
-            setTimeout(() => {
-                if (alertDiv && alertDiv.parentNode) {
-                    alertDiv.remove();
+    function bindOpenFolderButtons(scope) {
+        const buttons = scope.querySelectorAll('[data-open-folder]');
+        buttons.forEach((button) => {
+            button.addEventListener('click', function () {
+                const path = this.getAttribute('data-open-folder');
+                openFolder(path);
+            });
+        });
+    }
+
+    function openFolder(path) {
+        fetch('/data-processing/api/open-folder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: path }),
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                if (data.success) {
+                    AppAlerts.show('info', data.message || 'Carpeta abierta.');
+                } else {
+                    AppAlerts.show('danger', data.error || 'No se pudo abrir la carpeta.', { category: 'error' });
                 }
-            }, autoDismissMs);
-        }
+            })
+            .catch(() => {
+                AppAlerts.show('danger', 'No se pudo comunicar con el servidor.', { category: 'error' });
+            });
     }
 
     function scrollToResults() {
@@ -344,7 +395,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     else if (log.includes('✅') || log.includes('🚀')) logClass = 'text-success';
                     else if (log.includes('INFO')) logClass = 'text-info';
 
-                    html += `<div class="${logClass}">${escapeHtml(log)}</div>`;
+                    html += `<div class="${logClass}">${AppAlerts.escapeHtml(log)}</div>`;
                 }
             });
 
@@ -360,7 +411,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function displayError(error, logs = []) {
         let html = `<div class="alert alert-danger">
             <h6><i class="bi bi-exclamation-triangle"></i> Error en la generación</h6>
-            <p class="mb-0">${escapeHtml(error)}</p>
+            <p class="mb-0">${AppAlerts.escapeHtml(error)}</p>
         </div>`;
 
         if (logs && logs.length > 0) {
@@ -370,7 +421,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             logs.forEach(log => {
                 if (log.trim()) {
-                    html += `<div class="text-danger">${escapeHtml(log)}</div>`;
+                    html += `<div class="text-danger">${AppAlerts.escapeHtml(log)}</div>`;
                 }
             });
 
@@ -384,12 +435,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (logBox) logBox.scrollTop = logBox.scrollHeight;
     }
 
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
     // Form submission
     form.addEventListener('submit', function(e) {
         e.preventDefault();
@@ -398,24 +443,23 @@ document.addEventListener('DOMContentLoaded', function() {
         const periodo = formData.get('periodo');
         
         if (!periodo) {
-            showAlert('warning', 'El período es requerido');
+            AppAlerts.show('warning', 'El período es requerido', { category: 'error' });
             return;
         }
         
         // Validate period format
         if (!/^\d{6}$/.test(periodo)) {
-            showAlert('warning', 'El período debe tener formato YYYYPP (6 dígitos)');
+            AppAlerts.show('warning', 'El período debe tener formato YYYYPP (6 dígitos)', { category: 'error' });
             return;
         }
         
         // Clear previous state
-        alertContainer.innerHTML = '';
         resultsContainer.innerHTML = '';
         successContainer.classList.add('d-none');
 
         // Start process
         showProgress('Iniciando generación de reportes...');
-        showAlert('info', 'Proceso iniciado. Por favor espere...');
+        AppAlerts.show('info', 'Proceso iniciado. Por favor espere...');
         
         // Disable form during processing
         const submitButton = form.querySelector('input[type="submit"]');
@@ -439,10 +483,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.success) {
                 showSuccess(data);
                 displayLogs(data);
-                showAlert('success', '¡Todos los reportes generados exitosamente!');
+                AppAlerts.show('success', '¡Todos los reportes generados exitosamente!', { category: 'destructive-success' });
             } else {
                 displayError(data.error, data.logs);
-                showAlert('danger', 'Error en la generación de reportes');
+                AppAlerts.show('danger', 'Error en la generación de reportes', { category: 'error' });
             }
         })
         .catch(error => {
@@ -452,7 +496,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             hideProgress();
             displayError('Error de conexión: ' + error.message);
-            showAlert('danger', 'Error de conexión con el servidor');
+            AppAlerts.show('danger', 'Error de conexión con el servidor', { category: 'error' });
         });
     });
 
@@ -478,8 +522,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         let html = `<div class="alert alert-success">
             <h6><i class="bi bi-check-circle"></i> Comparación Completada</h6>
-            <p class="mb-0">${escapeHtml(data.message)}</p>
-            <small class="text-muted">Reporte guardado en: <code>${escapeHtml(data.report_path)}</code></small>
+            <p class="mb-0">${AppAlerts.escapeHtml(data.message)}</p>
+            <small class="text-muted">Reporte guardado en: <code>${AppAlerts.escapeHtml(data.report_path)}</code></small>
         </div>`;
 
         // Summary
@@ -527,7 +571,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (summary.only_in_actual.length > 0) {
                 html += `<div class="mb-2"><strong>Solo en período actual:</strong><br>`;
                 summary.only_in_actual.forEach(file => {
-                    html += `<small>• ${escapeHtml(file)}</small><br>`;
+                    html += `<small>• ${AppAlerts.escapeHtml(file)}</small><br>`;
                 });
                 html += `</div>`;
             }
@@ -535,7 +579,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (summary.only_in_previous.length > 0) {
                 html += `<div><strong>Solo en período anterior:</strong><br>`;
                 summary.only_in_previous.forEach(file => {
-                    html += `<small>• ${escapeHtml(file)}</small><br>`;
+                    html += `<small>• ${AppAlerts.escapeHtml(file)}</small><br>`;
                 });
                 html += `</div>`;
             }
@@ -559,7 +603,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <button class="accordion-button ${index === 0 ? '' : 'collapsed'} ${headerClass}" type="button"
                                 data-bs-toggle="collapse" data-bs-target="#collapse${index}">
                             <div class="d-flex w-100 justify-content-between align-items-center pe-3">
-                                <span>${escapeHtml(comp.file_name)}</span>
+                                <span>${AppAlerts.escapeHtml(comp.file_name)}</span>
                                 <span class="badge ${badgeClass}">${badgeText}</span>
                             </div>
                         </button>
@@ -587,7 +631,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <thead><tr><th>Código</th><th>Denominación</th></tr></thead>
                                 <tbody>`;
                     comp.new_companies.forEach(company => {
-                        html += `<tr><td>${escapeHtml(String(company.cod_cia))}</td><td>${escapeHtml(company.nombre_corto)}</td></tr>`;
+                        html += `<tr><td>${AppAlerts.escapeHtml(String(company.cod_cia))}</td><td>${AppAlerts.escapeHtml(company.nombre_corto)}</td></tr>`;
                     });
                     html += `</tbody></table></div></div>`;
                 }
@@ -600,7 +644,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <thead><tr><th>Código</th><th>Denominación</th></tr></thead>
                                 <tbody>`;
                     comp.missing_companies.forEach(company => {
-                        html += `<tr><td>${escapeHtml(String(company.cod_cia))}</td><td>${escapeHtml(company.nombre_corto)}</td></tr>`;
+                        html += `<tr><td>${AppAlerts.escapeHtml(String(company.cod_cia))}</td><td>${AppAlerts.escapeHtml(company.nombre_corto)}</td></tr>`;
                     });
                     html += `</tbody></table></div></div>`;
                 }
@@ -623,7 +667,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         let html = `<div class="alert alert-danger">
             <h6><i class="bi bi-exclamation-triangle"></i> Error en la Comparación</h6>
-            <p class="mb-0">${escapeHtml(error)}</p>
+            <p class="mb-0">${AppAlerts.escapeHtml(error)}</p>
         </div>`;
 
         if (logs && logs.length > 0) {
@@ -633,7 +677,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             logs.forEach(log => {
                 if (log.trim()) {
-                    html += `<div class="text-danger">${escapeHtml(log)}</div>`;
+                    html += `<div class="text-danger">${AppAlerts.escapeHtml(log)}</div>`;
                 }
             });
 
@@ -652,18 +696,17 @@ document.addEventListener('DOMContentLoaded', function() {
         const periodoAnterior = formData.get('periodo_anterior');
 
         if (!periodoActual || !periodoAnterior) {
-            showAlert('warning', 'Ambos períodos son requeridos');
+            AppAlerts.show('warning', 'Ambos períodos son requeridos', { category: 'error' });
             return;
         }
 
         // Validate period formats
         if (!/^\d{6}$/.test(periodoActual) || !/^\d{6}$/.test(periodoAnterior)) {
-            showAlert('warning', 'Los períodos deben tener formato YYYYPP (6 dígitos)');
+            AppAlerts.show('warning', 'Los períodos deben tener formato YYYYPP (6 dígitos)', { category: 'error' });
             return;
         }
 
         // Clear previous results
-        alertContainer.innerHTML = '';
         comparisonResultsContainer.innerHTML = '';
 
         // Start process
@@ -693,10 +736,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (data.success) {
                 displayComparisonResults(data);
-                showAlert('success', '¡Comparación completada exitosamente!');
+                AppAlerts.show('success', '¡Comparación completada exitosamente!');
             } else {
                 displayComparisonError(data.error, data.logs);
-                showAlert('danger', 'Error en la comparación de archivos');
+                AppAlerts.show('danger', 'Error en la comparación de archivos', { category: 'error' });
             }
         })
         .catch(error => {
@@ -705,7 +748,7 @@ document.addEventListener('DOMContentLoaded', function() {
             inputs.forEach(input => input.disabled = false);
 
             displayComparisonError('Error de conexión: ' + error.message);
-            showAlert('danger', 'Error de conexión con el servidor');
+            AppAlerts.show('danger', 'Error de conexión con el servidor', { category: 'error' });
         });
     });
 });

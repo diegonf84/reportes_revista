@@ -311,6 +311,30 @@ def expected_excel_filenames(period: str) -> set[str]:
     return {f"{period}_{name}.xlsx" for name in EXCEL_REPORT_NAMES}
 
 
+def _official_output_directories(root: Path, period_text: str) -> tuple[Path, Path]:
+    """Return ``(csv_dir, excel_dir)`` for the official output of one period.
+
+    Exposed as a module-level helper so tests can patch it and inspect
+    the staging/publish flow without polluting the real output directories.
+    """
+    return (
+        root / "ending_files" / period_text,
+        root / "excel_final_files" / period_text,
+    )
+
+
+def _file_inventory(paths: list[Path]) -> list[dict[str, int | str]]:
+    """Map a list of validated output paths to a UI-friendly inventory."""
+    inventory = []
+    for path in paths:
+        try:
+            size = path.stat().st_size
+        except OSError:
+            size = 0
+        inventory.append({"name": path.name, "size_bytes": size})
+    return inventory
+
+
 def validate_csv_outputs(directory: str | Path, period: str) -> list[Path]:
     """Validate the exact staged CSV set, schemas and non-empty content."""
     directory = Path(directory)
@@ -441,8 +465,7 @@ def generate_official_reports(
     logs: list[str] = []
     csv_script_path = root / "ending_files" / "generate_all_reports.py"
     excel_script_path = root / "excel_generators" / "generate_all_excel.py"
-    official_csv_dir = root / "ending_files" / period_text
-    official_excel_dir = root / "excel_final_files" / period_text
+    official_csv_dir, official_excel_dir = _official_output_directories(root, period_text)
 
     try:
         with tempfile.TemporaryDirectory(
@@ -576,6 +599,8 @@ def generate_official_reports(
             "excel_directory": str(official_excel_dir),
             "csv_count": len(csv_files),
             "excel_count": len(excel_files),
+            "csv_files": _file_inventory(csv_files),
+            "excel_files": _file_inventory(excel_files),
             "periodo": period_text,
         }
     except ReportGenerationFailure:

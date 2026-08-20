@@ -18,6 +18,7 @@ import logging
 # Import existing utilities
 from modules.common import setup_logging
 from modules.check_ultimos_periodos import list_available_periods
+from utils.user_messages import flash_user_error
 
 # Load environment variables
 load_dotenv()
@@ -65,7 +66,10 @@ def create_app():
             
         except Exception as e:
             logger.error(f"Error loading dashboard: {e}")
-            flash(f"Error loading dashboard data: {str(e)}", 'error')
+            flash_user_error(
+                "No se pudo cargar la información del dashboard.",
+                technical=e,
+            )
             return render_template('dashboard.html', stats={}, periods=[])
     
     @app.errorhandler(404)

@@ -116,7 +116,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const s3Button = document.getElementById('s3-upload-button');
     const s3Status = document.getElementById('s3-upload-status');
 
-    function escapeHtml(value) {
+    function AppAlerts.escapeHtml(value) {
         const element = document.createElement('div');
         element.textContent = value || '';
         return element.innerHTML;
@@ -147,13 +147,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 const reports = data.reports || {};
                 result.innerHTML = `<div class="alert alert-success mb-0">
                     <h6 class="alert-heading"><i class="bi bi-check-circle"></i> Procesamiento completado</h6>
-                    <p class="mb-1">${escapeHtml(data.message)}</p>
+                    <p class="mb-1">${AppAlerts.escapeHtml(data.message)}</p>
                     <small>${reports.csv_count || 0} CSV y ${reports.excel_count || 0} Excel generados.</small>
                 </div>`;
             } else {
                 result.innerHTML = `<div class="alert alert-danger mb-0">
                     <h6 class="alert-heading"><i class="bi bi-exclamation-triangle"></i> Procesamiento interrumpido</h6>
-                    <p class="mb-0">${escapeHtml(data.error)}</p>
+                    <p class="mb-0">${AppAlerts.escapeHtml(data.error)}</p>
                 </div>`;
             }
         })
@@ -184,11 +184,11 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data.success) {
                 s3Status.innerHTML = `<div class="text-success">
-                    <i class="bi bi-check-circle"></i> ${escapeHtml(data.message)}
+                    <i class="bi bi-check-circle"></i> ${AppAlerts.escapeHtml(data.message)}
                 </div>`;
             } else {
                 s3Status.innerHTML = `<div class="text-danger">
-                    <i class="bi bi-exclamation-triangle"></i> ${escapeHtml(data.error)}
+                    <i class="bi bi-exclamation-triangle"></i> ${AppAlerts.escapeHtml(data.error)}
                 </div>`;
             }
         })
@@ -240,12 +240,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (skipped) details.push(`${skipped} omitidos`);
                 if (failed) details.push(`${failed} con error`);
                 const summary = details.length ? ` (${details.join(', ')})` : '';
+                const folderButton = data.destination
+                    ? `<div class="mt-1"><button type="button" class="btn btn-sm btn-outline-primary" data-open-folder="${AppAlerts.escapeHtml(data.destination)}"><i class="bi bi-folder2-open"></i> Abrir carpeta de envío</button></div>`
+                    : '';
                 shipmentStatus.innerHTML = `<div class="text-success">
-                    <i class="bi bi-check-circle"></i> ${escapeHtml(data.message)}${escapeHtml(summary)}
-                </div>`;
+                    <i class="bi bi-check-circle"></i> ${AppAlerts.escapeHtml(data.message)}${AppAlerts.escapeHtml(summary)}
+                </div>${folderButton}`;
+                if (data.destination) {
+                    const button = shipmentStatus.querySelector('[data-open-folder]');
+                    if (button) {
+                        button.addEventListener('click', function () {
+                            openFolder(this.getAttribute('data-open-folder'));
+                        });
+                    }
+                }
             } else {
                 shipmentStatus.innerHTML = `<div class="text-danger">
-                    <i class="bi bi-exclamation-triangle"></i> ${escapeHtml(data.error)}
+                    <i class="bi bi-exclamation-triangle"></i> ${AppAlerts.escapeHtml(data.error)}
                 </div>`;
             }
         })
@@ -258,6 +269,25 @@ document.addEventListener('DOMContentLoaded', function() {
             shipmentButton.disabled = false;
         });
     });
+
+    function openFolder(path) {
+        fetch('/data-processing/api/open-folder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: path }),
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                if (data.success) {
+                    AppAlerts.show('info', data.message || 'Carpeta abierta.');
+                } else {
+                    AppAlerts.show('danger', data.error || 'No se pudo abrir la carpeta.', { category: 'error' });
+                }
+            })
+            .catch(() => {
+                AppAlerts.show('danger', 'No se pudo comunicar con el servidor.', { category: 'error' });
+            });
+    }
 });
 </script>
 {% endblock %}

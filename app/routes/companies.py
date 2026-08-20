@@ -17,6 +17,7 @@ import logging
 
 from modules.common import setup_logging
 from forms.company_forms import CompanyForm
+from utils.user_messages import flash_user_error
 
 # Setup logging
 setup_logging()
@@ -212,7 +213,10 @@ def add_company():
             return redirect(url_for('companies.list_companies'))
             
         except Exception as e:
-            flash(f'Error al agregar compañía: {str(e)}', 'error')
+            flash_user_error(
+                "No se pudo agregar la compañía.",
+                technical=e,
+            )
             logger.error(f"Error adding company: {e}")
     
     return render_template('companies/add.html', form=form)
@@ -253,7 +257,10 @@ def edit_company(cod_cia):
             return redirect(url_for('companies.list_companies'))
             
         except Exception as e:
-            flash(f'Error al actualizar compañía: {str(e)}', 'error')
+            flash_user_error(
+                "No se pudo actualizar la compañía.",
+                technical=e,
+            )
             logger.error(f"Error updating company: {e}")
     
     # Populate form with existing data
@@ -276,7 +283,10 @@ def delete_company_route(cod_cia):
         else:
             flash('Compañía no encontrada', 'error')
     except Exception as e:
-        flash(f'Error al eliminar compañía: {str(e)}', 'error')
+        flash_user_error(
+            "No se pudo eliminar la compañía.",
+            technical=e,
+        )
         logger.error(f"Error deleting company: {e}")
     
     return redirect(url_for('companies.list_companies'))

@@ -340,7 +340,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const progressContainer = document.getElementById('progress-container');
     const progressText = document.getElementById('progress-text');
     const resultsContainer = document.getElementById('results-container');
-    const alertContainer = document.getElementById('alert-container');
 
     function showProgress(message) {
         progressText.textContent = message;
@@ -351,24 +350,6 @@ document.addEventListener('DOMContentLoaded', function() {
         progressContainer.classList.add('d-none');
     }
 
-    function showAlert(type, message, autoDismissMs = 5000) {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
-        alertDiv.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-        alertContainer.appendChild(alertDiv);
-
-        if (autoDismissMs > 0) {
-            setTimeout(() => {
-                if (alertDiv && alertDiv.parentNode) {
-                    alertDiv.remove();
-                }
-            }, autoDismissMs);
-        }
-    }
-
     function scrollToResults() {
         resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -377,7 +358,7 @@ document.addEventListener('DOMContentLoaded', function() {
         scrollToResults();
         let html = `<div class="mb-3">
             <h6><i class="bi bi-check-circle text-success"></i> ${operation} completado exitosamente</h6>
-            <p class="text-success mb-0">${escapeHtml(data.message)}</p>
+            <p class="text-success mb-0">${AppAlerts.escapeHtml(data.message)}</p>
         </div>`;
 
         if (data.testing_mode) {
@@ -400,7 +381,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     else if (log.includes('WARNING')) logClass = 'text-warning';
                     else if (log.includes('INFO')) logClass = 'text-info';
 
-                    html += `<div class="${logClass}">${escapeHtml(log)}</div>`;
+                    html += `<div class="${logClass}">${AppAlerts.escapeHtml(log)}</div>`;
                 }
             });
 
@@ -416,7 +397,7 @@ document.addEventListener('DOMContentLoaded', function() {
         scrollToResults();
         let html = `<div class="alert alert-danger">
             <h6><i class="bi bi-exclamation-triangle"></i> Error en el procesamiento</h6>
-            <p class="mb-0">${escapeHtml(error)}</p>
+            <p class="mb-0">${AppAlerts.escapeHtml(error)}</p>
         </div>`;
 
         if (logs && logs.length > 0) {
@@ -426,7 +407,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             logs.forEach(log => {
                 if (log.trim()) {
-                    html += `<div class="text-danger">${escapeHtml(log)}</div>`;
+                    html += `<div class="text-danger">${AppAlerts.escapeHtml(log)}</div>`;
                 }
             });
             
@@ -436,14 +417,13 @@ document.addEventListener('DOMContentLoaded', function() {
         resultsContainer.innerHTML = html;
     }
 
-    function escapeHtml(text) {
+    function AppAlerts.escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     }
 
     function makeRequest(endpoint, data, operation) {
-        alertContainer.innerHTML = '';
         resultsContainer.innerHTML = '';
         showProgress(`Ejecutando ${operation}...`);
 
@@ -459,16 +439,16 @@ document.addEventListener('DOMContentLoaded', function() {
             hideProgress();
             if (data.success) {
                 displayResults(data, operation);
-                showAlert('success', data.message);
+                AppAlerts.show('success', data.message, { category: 'destructive-success' });
             } else {
                 displayError(data.error, data.logs);
-                showAlert('danger', `Error en ${operation}`);
+                AppAlerts.show('danger', `Error en ${operation}`, { category: 'error' });
             }
         })
         .catch(error => {
             hideProgress();
             displayError('Error de conexión: ' + error.message);
-            showAlert('danger', 'Error de conexión');
+            AppAlerts.show('danger', 'Error de conexión', { category: 'error' });
         });
     }
 
@@ -478,7 +458,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const periodo = document.getElementById('all_tables_periodo').value.trim();
         if (!/^\d{4}(0[1-4])$/.test(periodo)) {
-            showAlert('warning', 'Ingrese un período válido con formato YYYYPP');
+            AppAlerts.show('warning', 'Ingrese un período válido con formato YYYYPP', { category: 'error' });
             return;
         }
 
@@ -543,7 +523,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const testing_mode = formData.get('testing_mode') === 'y';
         
         if (!periodo) {
-            showAlert('warning', 'El período es requerido para la tabla de subramos');
+            AppAlerts.show('warning', 'El período es requerido para la tabla de subramos', { category: 'error' });
             return;
         }
         

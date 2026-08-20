@@ -108,7 +108,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const progressIndicator = document.getElementById('progress-indicator');
     const progressText = document.getElementById('progress-text');
     const resultsContainer = document.getElementById('results-container');
-    const alertContainer = document.getElementById('alert-container');
     const loadButton = document.getElementById('btn-load-data');
 
     function showProgress(message) {
@@ -122,36 +121,19 @@ document.addEventListener('DOMContentLoaded', function() {
         loadButton.disabled = false;
     }
 
-    function showAlert(type, message) {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
-        alertDiv.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-        alertContainer.appendChild(alertDiv);
-        
-        // Auto-dismiss after 10 seconds for all types
-        setTimeout(() => {
-            if (alertDiv && alertDiv.parentNode) {
-                alertDiv.remove();
-            }
-        }, 10000);
-    }
-
     function displayResults(data) {
         let html = '';
         
         // Handle different action types
         if (data.action_type === 'already_exists') {
             html = `<div class="mb-3">
-                <h6><i class="bi bi-info-circle text-info"></i> ${escapeHtml(data.message)}</h6>
+                <h6><i class="bi bi-info-circle text-info"></i> ${AppAlerts.escapeHtml(data.message)}</h6>
                 <p class="text-muted mb-0">No se realizaron cambios en la base de datos.</p>
             </div>`;
         } else {
             // newly_loaded or default case
             html = `<div class="mb-3">
-                <h6><i class="bi bi-check-circle text-success"></i> ${escapeHtml(data.message)}</h6>
+                <h6><i class="bi bi-check-circle text-success"></i> ${AppAlerts.escapeHtml(data.message)}</h6>
             </div>`;
             
             // Show only a brief summary of key logs for newly loaded data
@@ -170,7 +152,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     keyLogs.forEach(log => {
                         if (log.trim()) {
-                            html += `<div class="text-dark">${escapeHtml(log)}</div>`;
+                            html += `<div class="text-dark">${AppAlerts.escapeHtml(log)}</div>`;
                         }
                     });
                     
@@ -185,13 +167,13 @@ document.addEventListener('DOMContentLoaded', function() {
     function displayError(error, logs = []) {
         let html = `<div class="alert alert-danger">
             <h6><i class="bi bi-exclamation-triangle"></i> Error en la carga</h6>
-            <p class="mb-0">${escapeHtml(error)}</p>
+            <p class="mb-0">${AppAlerts.escapeHtml(error)}</p>
         </div>`;
 
         resultsContainer.innerHTML = html;
     }
 
-    function escapeHtml(text) {
+    function AppAlerts.escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
@@ -205,7 +187,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const periodo = formData.get('periodo');
         
         if (!periodo) {
-            showAlert('warning', 'El período es requerido');
+            AppAlerts.show('warning', 'El período es requerido', { category: 'error' });
             return;
         }
         
@@ -229,22 +211,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Different alert types based on action
                 if (data.action_type === 'already_exists') {
-                    showAlert('info', data.message);
+                    AppAlerts.show('info', data.message);
                 } else {
-                    showAlert('success', data.message);
+                    AppAlerts.show('success', data.message, { category: 'destructive-success' });
                 }
                 
                 // Reset form
                 this.reset();
             } else {
                 displayError(data.error, data.logs);
-                showAlert('danger', 'Error durante la carga');
+                AppAlerts.show('danger', 'Error durante la carga', { category: 'error' });
             }
         })
         .catch(error => {
             hideProgress();
             displayError('Error de conexión: ' + error.message);
-            showAlert('danger', 'Error de conexión');
+            AppAlerts.show('danger', 'Error de conexión', { category: 'error' });
         });
     });
 });

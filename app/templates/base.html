@@ -75,7 +75,9 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ 'danger' if category == 'error' else 'success' if category == 'success' else 'info' }} alert-dismissible fade show" role="alert">
+                    {% set bs_class = 'danger' if category in ('error', 'danger') else 'success' if category in ('success', 'destructive-success') else 'warning' if category == 'warning' else 'info' %}
+                    {% set sticky = 'true' if category in ('error', 'danger', 'warning', 'destructive-success') else 'false' %}
+                    <div class="alert alert-{{ bs_class }} alert-dismissible fade show" role="alert" data-sticky="{{ sticky }}">
                         {{ message }}
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>
@@ -106,6 +108,7 @@
     
     <!-- Custom JS -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/alerts.js') }}"></script>
     
     {% block scripts %}
     {% endblock %}

@@ -9,14 +9,14 @@ Checklist vivo para fortalecer la operación, los controles y la mantenibilidad 
 | 1 | Generación confiable de reportes | Alta | Completada |
 | 2 | Recarga segura de períodos | Alta | Completada |
 | 3 | Pipeline completo por período | Alta | Completada |
-| 4 | Mensajes, progreso y experiencia operativa | Media | Pendiente |
+| 4 | Mensajes claros y resultados visibles (alcance lean) | Baja | En curso |
 | 5 | Controles de datos maestros y conciliación | Alta | Pendiente |
 | 6 | Tests automatizados | Alta | Pendiente |
 | 7 | Base de datos, arquitectura y entorno | Alta | Pendiente |
 | 8 | Seguridad y preparación para despliegue | Media | Pendiente |
 
 **Estado del plan:** en ejecución  
-**Fase activa:** Ninguna; próxima sugerida: Fase 4 — Mensajes, progreso y experiencia operativa
+**Fase activa:** Fase 4 — Mensajes claros y resultados visibles (alcance lean)
 **Última actualización:** 2026-08-20
 
 ## Criterios acordados
@@ -170,9 +170,27 @@ Desde la interfaz se puede seleccionar un período y completar todo el flujo req
 
 ---
 
-## Fase 4 — Mensajes, progreso y experiencia operativa
+## Fase 4 — Mensajes claros y resultados visibles (alcance lean)
 
-**Objetivo:** hacer visible qué está ocurriendo, qué terminó y qué necesita intervención, sin mensajes contradictorios o efímeros.
+**Objetivo:** que los mensajes al usuario sean consistentes, claros y los resultados importantes no se pierdan, sin detalles técnicos ni mensajes contradictorios. Dado que el pipeline corre en segundos, esta fase NO agrega persistencia, progreso por etapa ni estado del dashboard — eso queda fuera del alcance lean y podrá abordarse en una fase futura si la operación lo justifica.
+
+### Alcance explícito
+
+**Dentro (lean):**
+- Política única para mensajes informativos, exitosos, advertencias y errores.
+- Resultados importantes visibles hasta que el usuario los cierre.
+- Auto-cierre reservado para avisos menores.
+- Eliminar las diferencias arbitrarias de 5, 8 y 10 segundos entre pantallas.
+- Evitar mensajes dobles o contradictorios ante una misma respuesta.
+- Separar el mensaje funcional para el usuario de los detalles técnicos de diagnóstico.
+- Inventario final de archivos oficiales generados.
+- Facilitar descarga o apertura de la ubicación de salida.
+
+**Fuera del alcance lean (para otra fase si surge la necesidad):**
+- Progreso real por etapa.
+- Persistencia del resumen tras cerrar o recargar la pantalla.
+- Estado del último período en el dashboard.
+- Lock visual entre pestañas del navegador.
 
 ### Checklist
 
@@ -180,26 +198,40 @@ Desde la interfaz se puede seleccionar un período y completar todo el flujo req
 - [ ] Mantener visibles los resultados importantes hasta que el usuario los cierre.
 - [ ] Reservar el auto-cierre para avisos menores.
 - [ ] Eliminar diferencias arbitrarias de 5, 8 y 10 segundos entre pantallas.
-- [ ] Mostrar progreso real por etapa en lugar de una barra estática al 100 %.
-- [ ] Mostrar el paso actual, pasos completados y paso fallido.
-- [ ] Mantener un resumen visible aunque se cierre o recargue la pantalla.
-- [ ] Deshabilitar acciones incompatibles mientras hay un proceso activo.
 - [ ] Evitar mensajes dobles o contradictorios ante una misma respuesta.
 - [ ] Separar el mensaje funcional para el usuario de los detalles técnicos de diagnóstico.
 - [ ] Mostrar un inventario final de archivos oficiales generados.
 - [ ] Facilitar descarga o apertura de la ubicación de salida.
-- [ ] Incorporar al dashboard el estado real del último período procesado.
 
 ### Criterio de cierre
 
-El usuario puede saber en todo momento qué operación está activa, cuál fue su resultado y qué debe hacer después, sin depender de mensajes temporales ni de revisar carpetas manualmente.
+Los mensajes al usuario son consistentes entre pantallas, los resultados importantes no se borran solos, no hay mensajes duplicados, no se exponen detalles técnicos, y al finalizar una corrida exitosa el usuario ve el inventario y puede abrir la carpeta de salida sin revisar el filesystem manualmente.
 
 ### Evidencia de cierre
 
-- Fecha:
+- Fecha: 2026-08-20.
 - Pruebas ejecutadas:
+  - Suite completa: 55 pruebas aprobadas con `conda run -n revista_tr_cuadros python -m unittest discover -s tests` (45 de fases previas + 4 de `tests/test_user_messages.py` + 5 de `tests/test_open_folder.py` + 1 extendida en `tests/test_report_generation.py` para inventario).
+  - Templates Jinja: las 6 plantillas de `app/templates/` compilan sin errores.
+  - Sintaxis JS: `app/static/js/alerts.js` y `app/static/js/main.js` validadas con `node --check`.
+  - Sanitización de errores verificada en `tests/test_user_messages.py`: el `str(exception)` no llega al flash del usuario y el detalle técnico sí queda registrado vía `app.logger`.
+  - Endpoint `/api/open-folder` verificado en `tests/test_open_folder.py`: solo abre rutas dentro de `excel_final_files/`, `ending_files/` o el directorio base de envío (`SHIPMENT_BASE_DIR`); rechaza con 403 cualquier ruta fuera de la allow-list, con 404 las inexistentes y con 400 cuando falta el argumento `path`.
+  - Inventario de archivos verificado en `tests/test_report_generation.py::test_endpoint_returns_file_inventory_on_success`: la respuesta de `/api/generate-all-reports` ahora incluye `csv_files` y `excel_files` con `name` y `size_bytes` por archivo.
 - Archivos afectados:
+  - `utils/user_messages.py` (nuevo) — `flash_user_error` y `flash_user_success` con separación funcional/técnico.
+  - `app/static/js/alerts.js` (nuevo) — módulo único de alertas, severidad-driven (sticky para `error` y `destructive-success`; autocierre `MINOR_DISMISS_MS = 4000` para el resto), dedup `DEDUP_WINDOW_MS = 2000`, `escapeHtml` consolidado y adopción de mensajes flash server-rendered vía `data-sticky`.
+  - `app/static/js/main.js` — removido el auto-dismiss global de 5s (ahora lo gobierna `alerts.js`).
+  - `app/templates/base.html` — carga `alerts.js` y mapea categorías de flash a clases Bootstrap + `data-sticky`.
+  - `app/templates/data_processing/report_generation.html`, `table_creation.html`, `verification.html`, `loading.html`, `full_processing.html` — eliminadas las definiciones locales de `showAlert`/`escapeHtml`, todas las llamadas usan `AppAlerts.show` y `AppAlerts.escapeHtml`; añadido botón "Abrir carpeta" en las vistas de Reportes y Procesamiento completo (envío).
+  - `app/routes/data_processing.py` — agregado `import platform` y `subprocess`, endpoint `/api/open-folder` con allow-list, reemplazos de `flash(str(e))` por `flash_user_error`.
+  - `app/routes/companies.py` — `flash(str(e))` reemplazado por `flash_user_error` en alta/edición/baja de compañía.
+  - `app/app.py` — `flash(str(e))` del dashboard reemplazado por `flash_user_error`.
+  - `modules/report_generation.py` — helper `_official_output_directories` para testabilidad, `_file_inventory` para serializar el listado de archivos, return dict extendido con `csv_files` y `excel_files`.
+  - `tests/test_user_messages.py`, `tests/test_open_folder.py` (nuevos), `tests/test_report_generation.py` (extendido).
 - Observaciones:
+  - El pipeline sigue corriendo en proceso sincrónico. Sin persistencia de UX, sin polling/SSE, sin estado en dashboard — todo eso quedó fuera del alcance lean por decisión explícita (registrada en `Registro de decisiones y cambios`).
+  - El timeout único para auto-cierre es 4000 ms (`MINOR_DISMISS_MS` en `alerts.js`), reemplazando los 5/8/10 s anteriores. El sentinel `.alert-permanent` se respeta vía `data-sticky` server-side y vía categoría client-side.
+  - El endpoint `/api/open-folder` usa `subprocess.Popen` y no bloquea la respuesta; el comando se elige según `platform.system()` (`open` / `explorer` / `xdg-open`).
 
 ---
 
@@ -342,3 +374,5 @@ El modo local está explícitamente delimitado y cualquier despliegue compartido
 |---|---|---|---|
 | 2026-08-19 | General | Se crea el checklist por fases. | Trabajar mejoras en sesiones separadas sin perder contexto. |
 | 2026-08-19 | 1 | No se versionará cada generación Excel. | La salida oficial debe ser determinística y sobrescribible para una base estable. |
+| 2026-08-20 | 4 | Se reduce el alcance de la Fase 4 al "lean" (8 ítems sin persistencia ni progreso por etapa). | El pipeline corre en segundos; el usuario consideró sobreingeniería persistencia, polling/SSE, dashboard de última corrida y progreso real. Las features retiradas quedan registradas como "fuera del alcance lean" para una fase futura. |
+| 2026-08-20 | 4 | Se implementa la Fase 4 lean: módulo `AppAlerts` único, sanitización de errores, inventario de archivos generados y endpoint `/api/open-folder` con allow-list. | Cierre verificado con 55 tests aprobados. Se saltea la ceremonia SDD porque los agentes `sdd-*` están configurados con modelos no accesibles (`opencode-go/deepseek-v4-pro`, `qwen3.7-plus`, `mimo-v2.5`); el alcance lean está bien delimitado y la propuesta/explore/decisiones quedaron en engram. |

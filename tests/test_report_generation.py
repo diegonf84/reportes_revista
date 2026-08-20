@@ -220,6 +220,70 @@ class ReportGenerationEndpointTests(unittest.TestCase):
         self.assertNotIn("no such table", payload["error"])
         preflight_mock.assert_called_once()
 
+    @patch.dict(os.environ, {"DATABASE": "reports.sqlite"})
+    @patch.object(report_generation, "validate_report_preflight")
+    @patch.object(report_generation, "publish_staged_directories")
+    @patch.object(report_generation, "validate_excel_outputs")
+    @patch.object(report_generation, "validate_csv_outputs")
+    @patch.object(report_generation.subprocess, "run")
+    def test_endpoint_returns_file_inventory_on_success(
+        self,
+        run_mock,
+        csv_validate_mock,
+        excel_validate_mock,
+        publish_mock,
+        preflight_mock,
+    ):
+        run_mock.return_value.returncode = 0
+        run_mock.return_value.stdout = ""
+        run_mock.return_value.stderr = ""
+
+        with tempfile.TemporaryDirectory() as staging_root:
+            staging_root_path = Path(staging_root)
+            csv_dir = staging_root_path / "csv"
+            excel_dir = staging_root_path / "excel"
+            csv_dir.mkdir()
+            excel_dir.mkdir()
+            csv_paths = []
+            for report_name in CSV_CONTRACTS:
+                p = csv_dir / f"202602_{report_name}.csv"
+                p.write_text("a,b\n1,2\n")
+                csv_paths.append(p)
+            excel_paths = []
+            for report_name in EXCEL_REPORT_NAMES:
+                p = excel_dir / f"202602_{report_name}.xlsx"
+                workbook = Workbook()
+                workbook.active["A1"] = report_name
+                workbook.save(p)
+                excel_paths.append(p)
+            csv_validate_mock.return_value = csv_paths
+            excel_validate_mock.return_value = excel_paths
+            publish_mock.return_value = None
+
+            with patch.object(
+                report_generation,
+                "_official_output_directories",
+                return_value=(csv_dir, excel_dir),
+            ):
+                response = self.client.post(
+                    "/api/generate-all-reports",
+                    json={"periodo": "202602"},
+                )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload["success"])
+        self.assertIn("csv_files", payload)
+        self.assertIn("excel_files", payload)
+        self.assertEqual(len(payload["csv_files"]), len(CSV_CONTRACTS))
+        self.assertEqual(len(payload["excel_files"]), len(EXCEL_REPORT_NAMES))
+        for entry in payload["csv_files"]:
+            self.assertIn("name", entry)
+            self.assertIn("size_bytes", entry)
+            self.assertGreaterEqual(entry["size_bytes"], 0)
+        self.assertEqual(payload["csv_directory"], str(csv_dir))
+        self.assertEqual(payload["excel_directory"], str(excel_dir))
+
 
 if __name__ == "__main__":
     unittest.main()

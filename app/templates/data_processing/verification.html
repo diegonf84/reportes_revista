@@ -246,7 +246,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const progressIndicator = document.getElementById('progress-indicator');
     const progressText = document.getElementById('progress-text');
     const resultsContainer = document.getElementById('results-container');
-    const alertContainer = document.getElementById('alert-container');
 
     function showProgress(message) {
         progressText.textContent = message;
@@ -255,23 +254,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function hideProgress() {
         progressIndicator.classList.add('d-none');
-    }
-
-    function showAlert(type, message) {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
-        alertDiv.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-        alertContainer.appendChild(alertDiv);
-        
-        // Auto-dismiss after 5 seconds
-        setTimeout(() => {
-            if (alertDiv && alertDiv.parentNode) {
-                alertDiv.remove();
-            }
-        }, 5000);
     }
 
     function displayResults(data, operation) {
@@ -321,7 +303,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             data.logs.forEach(log => {
                 if (log.trim()) {
-                    html += `<div>${escapeHtml(log)}</div>`;
+                    html += `<div>${AppAlerts.escapeHtml(log)}</div>`;
                 }
             });
             
@@ -334,7 +316,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function displayError(error, logs = []) {
         let html = `<div class="alert alert-danger">
             <h6><i class="bi bi-exclamation-triangle"></i> Error</h6>
-            <p class="mb-0">${escapeHtml(error)}</p>
+            <p class="mb-0">${AppAlerts.escapeHtml(error)}</p>
         </div>`;
 
         if (logs && logs.length > 0) {
@@ -344,7 +326,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             logs.forEach(log => {
                 if (log.trim()) {
-                    html += `<div>${escapeHtml(log)}</div>`;
+                    html += `<div>${AppAlerts.escapeHtml(log)}</div>`;
                 }
             });
             
@@ -354,7 +336,7 @@ document.addEventListener('DOMContentLoaded', function() {
         resultsContainer.innerHTML = html;
     }
 
-    function escapeHtml(text) {
+    function AppAlerts.escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
@@ -378,16 +360,16 @@ document.addEventListener('DOMContentLoaded', function() {
             hideProgress();
             if (data.success) {
                 displayResults(data, 'Consulta de períodos');
-                showAlert('success', data.message);
+                AppAlerts.show('success', data.message, { category: 'destructive-success' });
             } else {
                 displayError(data.error, data.logs);
-                showAlert('danger', 'Error al obtener períodos');
+                AppAlerts.show('danger', 'Error al obtener períodos', { category: 'error' });
             }
         })
         .catch(error => {
             hideProgress();
             displayError('Error de conexión: ' + error.message);
-            showAlert('danger', 'Error de conexión');
+            AppAlerts.show('danger', 'Error de conexión', { category: 'error' });
         });
     });
 
@@ -476,7 +458,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('check-file-current').addEventListener('click', function() {
         const periodo = document.getElementById('periodo_archivo').value;
         if (!periodo) {
-            showAlert('warning', 'Ingresa un período primero');
+            AppAlerts.show('warning', 'Ingresa un período primero', { category: 'error' });
             return;
         }
         
@@ -487,7 +469,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             })
             .catch(error => {
-                showAlert('danger', 'Error verificando archivo');
+                AppAlerts.show('danger', 'Error verificando archivo', { category: 'error' });
             });
     });
 
@@ -496,12 +478,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const periodoAnterior = document.getElementById('periodo_anterior').value;
         
         if (!periodoArchivo) {
-            showAlert('warning', 'Ingresa el período del archivo primero');
+            AppAlerts.show('warning', 'Ingresa el período del archivo primero', { category: 'error' });
             return;
         }
         
         if (!periodoAnterior) {
-            showAlert('warning', 'Ingresa el período anterior primero');
+            AppAlerts.show('warning', 'Ingresa el período anterior primero', { category: 'error' });
             return;
         }
         
@@ -513,7 +495,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             })
             .catch(error => {
-                showAlert('danger', 'Error verificando archivos');
+                AppAlerts.show('danger', 'Error verificando archivos', { category: 'error' });
             });
     });
 
@@ -546,7 +528,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const periodo_anterior = formData.get('periodo_anterior');
         
         if (!periodo_archivo) {
-            showAlert('warning', 'El período del archivo es requerido');
+            AppAlerts.show('warning', 'El período del archivo es requerido', { category: 'error' });
             return;
         }
         
@@ -572,16 +554,16 @@ document.addEventListener('DOMContentLoaded', function() {
             hideProgress();
             if (data.success) {
                 displayResults(data, 'Verificación de compañías');
-                showAlert('success', data.message);
+                AppAlerts.show('success', data.message, { category: 'destructive-success' });
             } else {
                 displayError(data.error, data.logs);
-                showAlert('danger', 'Error al verificar compañías');
+                AppAlerts.show('danger', 'Error al verificar compañías', { category: 'error' });
             }
         })
         .catch(error => {
             hideProgress();
             displayError('Error de conexión: ' + error.message);
-            showAlert('danger', 'Error de conexión');
+            AppAlerts.show('danger', 'Error de conexión', { category: 'error' });
         });
     });
 
@@ -594,7 +576,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const fileInput = this.querySelector('input[type="file"]');
         if (!fileInput || !fileInput.files.length) {
-            showAlert('warning', 'Seleccioná un archivo para comparar');
+            AppAlerts.show('warning', 'Seleccioná un archivo para comparar', { category: 'error' });
             return;
         }
 
@@ -614,7 +596,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('btn-reload-compare').disabled = false;
 
             if (!data.success) {
-                showAlert('danger', data.error);
+                AppAlerts.show('danger', data.error, { category: 'error' });
                 return;
             }
 
@@ -637,7 +619,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <strong>Compañías nuevas en el archivo (${data.new_companies.length}):</strong>
                     <ul class="mb-0 mt-1">`;
                 data.new_companies.forEach(c => {
-                    html += `<li><code>${escapeHtml(c.cod)}</code> — ${escapeHtml(c.nombre)}</li>`;
+                    html += `<li><code>${AppAlerts.escapeHtml(c.cod)}</code> — ${AppAlerts.escapeHtml(c.nombre)}</li>`;
                 });
                 html += `</ul></div>`;
             }
@@ -647,7 +629,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <strong>Compañías que ya no aparecen en el archivo (${data.missing_companies.length}):</strong>
                     <ul class="mb-0 mt-1">`;
                 data.missing_companies.forEach(c => {
-                    html += `<li><code>${escapeHtml(c.cod)}</code> — ${escapeHtml(c.nombre)}</li>`;
+                    html += `<li><code>${AppAlerts.escapeHtml(c.cod)}</code> — ${AppAlerts.escapeHtml(c.nombre)}</li>`;
                 });
                 html += `</ul></div>`;
             }
@@ -662,7 +644,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(error => {
             hideProgress();
             document.getElementById('btn-reload-compare').disabled = false;
-            showAlert('danger', 'Error de conexión: ' + error.message);
+            AppAlerts.show('danger', 'Error de conexión: ' + error.message, { category: 'error' });
         });
     });
 
@@ -677,7 +659,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (!data.success) {
-                showAlert('danger', data.error);
+                AppAlerts.show('danger', data.error, { category: 'error' });
                 return;
             }
             reloadPeriodo = null;
@@ -685,9 +667,9 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('reload-comparison').classList.add('d-none');
             document.getElementById('reload-logs-container').classList.add('d-none');
             document.getElementById('reload-form').reset();
-            showAlert('info', data.message);
+            AppAlerts.show('info', data.message);
         })
-        .catch(error => showAlert('danger', 'Error de conexión: ' + error.message));
+        .catch(error => AppAlerts.show('danger', 'Error de conexión: ' + error.message, { category: 'error' }));
     });
 
     document.getElementById('btn-confirm-reload').addEventListener('click', function() {
@@ -714,21 +696,21 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.logs && data.logs.length > 0) {
                 logsHtml = `<div class="bg-dark text-light p-3 rounded" style="font-family: 'Courier New', monospace; font-size: 0.9rem; max-height: 300px; overflow-y: auto;">`;
                 data.logs.forEach(log => {
-                    if (log.trim()) logsHtml += `<div>${escapeHtml(log)}</div>`;
+                    if (log.trim()) logsHtml += `<div>${AppAlerts.escapeHtml(log)}</div>`;
                 });
                 logsHtml += `</div>`;
             }
 
             if (data.success) {
-                logsHtml = `<div class="alert alert-success">${escapeHtml(data.message)}</div>` + logsHtml;
-                showAlert('success', data.message);
+                logsHtml = `<div class="alert alert-success">${AppAlerts.escapeHtml(data.message)}</div>` + logsHtml;
+                AppAlerts.show('success', data.message, { category: 'destructive-success' });
                 reloadPeriodo = null;
                 reloadToken = null;
                 document.getElementById('reload-comparison').classList.add('d-none');
                 document.getElementById('reload-form').reset();
             } else {
-                logsHtml = `<div class="alert alert-danger">${escapeHtml(data.error)}</div>` + logsHtml;
-                showAlert('danger', 'Error al recargar: ' + data.error);
+                logsHtml = `<div class="alert alert-danger">${AppAlerts.escapeHtml(data.error)}</div>` + logsHtml;
+                AppAlerts.show('danger', 'Error al recargar: ' + data.error, { category: 'error' });
             }
 
             document.getElementById('reload-logs-content').innerHTML = logsHtml;
@@ -737,8 +719,8 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('reload-logs-progress').classList.add('d-none');
             document.getElementById('btn-confirm-reload').disabled = false;
             document.getElementById('btn-cancel-reload').disabled = false;
-            document.getElementById('reload-logs-content').innerHTML = `<div class="alert alert-danger">Error de conexión: ${escapeHtml(error.message)}</div>`;
-            showAlert('danger', 'Error de conexión');
+            document.getElementById('reload-logs-content').innerHTML = `<div class="alert alert-danger">Error de conexión: ${AppAlerts.escapeHtml(error.message)}</div>`;
+            AppAlerts.show('danger', 'Error de conexión', { category: 'error' });
         });
     });
 
@@ -751,7 +733,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const fileInput = document.getElementById('mdb_file');
         
         if (!fileInput.files.length) {
-            showAlert('warning', 'Selecciona un archivo para subir');
+            AppAlerts.show('warning', 'Selecciona un archivo para subir', { category: 'error' });
             return;
         }
         
@@ -771,7 +753,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             hideProgress();
             if (data.success) {
-                showAlert('success', data.message);
+                AppAlerts.show('success', data.message, { category: 'destructive-success' });
                 uploadForm.reset();
 
                 // Estos elementos pertenecen al bloque de verificación y
@@ -784,13 +766,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (previousStatus) previousStatus.innerHTML = '';
                 if (fileSummary) fileSummary.classList.add('d-none');
             } else {
-                showAlert('danger', data.error || 'No se pudo subir el archivo');
+                AppAlerts.show('danger', data.error || 'No se pudo subir el archivo', { category: 'error' });
             }
         })
         .catch(error => {
             hideProgress();
             console.error('Error al subir archivo:', error);
-            showAlert('danger', `Error al subir archivo: ${error.message}`);
+            AppAlerts.show('danger', `Error al subir archivo: ${error.message}`, { category: 'error' });
         });
     });
 });

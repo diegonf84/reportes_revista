@@ -1,6 +1,8 @@
 import os
 import logging
+import platform
 import sqlite3
+import subprocess
 import json
 import sys
 from io import StringIO
@@ -57,6 +59,7 @@ from modules.period_reload import (
     stage_reload_candidate,
 )
 from modules.shipment import prepare_shipment
+from utils.user_messages import flash_user_error
 
 data_processing_bp = Blueprint('data_processing', __name__)
 
@@ -942,7 +945,10 @@ def list_conceptos():
         return render_template('data_processing/conceptos/list.html', conceptos=conceptos)
     
     except Exception as e:
-        flash(f'Error al cargar conceptos: {str(e)}', 'error')
+        flash_user_error(
+            "No se pudieron cargar los conceptos.",
+            technical=e,
+        )
         return redirect(url_for('dashboard'))
 
 
@@ -992,7 +998,10 @@ def add_concepto():
             return redirect(url_for('data_processing.list_conceptos'))
             
         except Exception as e:
-            flash(f'Error al agregar concepto: {str(e)}', 'error')
+            flash_user_error(
+                "No se pudo agregar el concepto.",
+                technical=e,
+            )
     
     return render_template('data_processing/conceptos/add.html', form=form)
 
@@ -1064,7 +1073,10 @@ def edit_concepto(concepto_id):
                 form.es_subramo.data = bool(concepto[4])
     
     except Exception as e:
-        flash(f'Error al cargar/actualizar concepto: {str(e)}', 'error')
+        flash_user_error(
+            "No se pudo cargar o actualizar el concepto.",
+            technical=e,
+        )
         return redirect(url_for('data_processing.list_conceptos'))
     
     return render_template('data_processing/conceptos/edit.html', form=form, concepto_id=concepto_id)
@@ -1092,7 +1104,10 @@ def delete_concepto(concepto_id):
         flash('Concepto eliminado exitosamente.', 'success')
     
     except Exception as e:
-        flash(f'Error al eliminar concepto: {str(e)}', 'error')
+        flash_user_error(
+            "No se pudo eliminar el concepto.",
+            technical=e,
+        )
 
     return redirect(url_for('data_processing.list_conceptos'))
 
@@ -1279,3 +1294,78 @@ def api_cancel_reload_period():
             'status': 'failed',
             'error': str(error),
         }), 400
+
+
+@data_processing_bp.route('/api/open-folder', methods=['POST'])
+def api_open_folder():
+    """Abre una carpeta de salida del sistema en el explorador del SO.
+
+    Phase 4 (lean) — item 8. La ruta debe estar dentro de uno de los
+    directorios raíz permitidos (``excel_final_files/``, ``ending_files/``
+    o el directorio de envío configurado en ``modules.shipment``).
+    Cualquier ruta fuera de esa lista es rechazada con 403 para evitar
+    acceso arbitrario al sistema de archivos local.
+    """
+    from modules.shipment import SHIPMENT_BASE_DIR
+
+    data = request.get_json(silent=True) or {}
+    raw_path = (data.get('path') or '').strip()
+    if not raw_path:
+        return jsonify({
+            'success': False,
+            'error': 'La ruta es requerida.',
+        }), 400
+
+    try:
+        requested = Path(raw_path).expanduser().resolve()
+    except (OSError, RuntimeError):
+        return jsonify({
+            'success': False,
+            'error': 'La ruta no es válida.',
+        }), 400
+
+    allowed_roots = (
+        Path(project_root) / 'excel_final_files',
+        Path(project_root) / 'ending_files',
+        SHIPMENT_BASE_DIR,
+    )
+    is_allowed = False
+    for root in allowed_roots:
+        try:
+            requested.relative_to(root.resolve())
+            is_allowed = True
+            break
+        except ValueError:
+            continue
+
+    if not is_allowed:
+        return jsonify({
+            'success': False,
+            'error': 'La ruta indicada no está dentro de los directorios permitidos.',
+        }), 403
+
+    if not requested.exists() or not requested.is_dir():
+        return jsonify({
+            'success': False,
+            'error': 'La ruta no existe o no es un directorio.',
+        }), 404
+
+    system = platform.system()
+    try:
+        if system == 'Darwin':
+            subprocess.Popen(['open', str(requested)])
+        elif system == 'Windows':
+            subprocess.Popen(['explorer', str(requested)])
+        else:
+            subprocess.Popen(['xdg-open', str(requested)])
+    except (OSError, FileNotFoundError):
+        logging.exception('Error abriendo carpeta %s', requested)
+        return jsonify({
+            'success': False,
+            'error': 'No se pudo abrir la carpeta en el sistema operativo.',
+        }), 500
+
+    return jsonify({
+        'success': True,
+        'message': f'Carpeta abierta: {requested}',
+    })
