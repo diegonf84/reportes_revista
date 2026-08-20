@@ -53,6 +53,25 @@
             </div>
         </div>
     </div>
+
+    <div class="row justify-content-center mt-4">
+        <div class="col-lg-8">
+            <div class="card border-secondary">
+                <div class="card-body d-md-flex align-items-center justify-content-between gap-4">
+                    <div>
+                        <h5 class="card-title"><i class="bi bi-cloud-arrow-up"></i> Publicar en S3</h5>
+                        <p class="card-text text-muted mb-md-0">
+                            Regenera los tres Parquet de los últimos 6 años hasta el período más reciente y los sube a S3.
+                        </p>
+                    </div>
+                    <button type="button" class="btn btn-outline-primary flex-shrink-0" id="s3-upload-button">
+                        <i class="bi bi-cloud-arrow-up"></i> Subir a S3
+                    </button>
+                </div>
+                <div class="card-footer bg-white d-none" id="s3-upload-status" aria-live="polite"></div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -62,6 +81,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const submitButton = document.getElementById('submit-button');
     const status = document.getElementById('processing-status');
     const result = document.getElementById('processing-result');
+    const s3Button = document.getElementById('s3-upload-button');
+    const s3Status = document.getElementById('s3-upload-status');
 
     function escapeHtml(value) {
         const element = document.createElement('div');
@@ -111,6 +132,41 @@ document.addEventListener('DOMContentLoaded', function() {
             status.classList.add('d-none');
             submitButton.disabled = false;
             periodInput.disabled = false;
+        });
+    });
+
+    s3Button.addEventListener('click', function() {
+        s3Button.disabled = true;
+        s3Status.classList.remove('d-none');
+        s3Status.innerHTML = `<div class="d-flex align-items-center text-primary">
+            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+            <span>Generando los Parquet históricos y subiéndolos a S3...</span>
+        </div>`;
+
+        fetch('/data-processing/api/upload-parquet-to-s3', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                s3Status.innerHTML = `<div class="text-success">
+                    <i class="bi bi-check-circle"></i> ${escapeHtml(data.message)}
+                </div>`;
+            } else {
+                s3Status.innerHTML = `<div class="text-danger">
+                    <i class="bi bi-exclamation-triangle"></i> ${escapeHtml(data.error)}
+                </div>`;
+            }
+        })
+        .catch(() => {
+            s3Status.innerHTML = `<div class="text-danger">
+                <i class="bi bi-exclamation-triangle"></i> No se pudo completar la comunicación con el servidor.
+            </div>`;
+        })
+        .finally(() => {
+            s3Button.disabled = false;
         });
     });
 });

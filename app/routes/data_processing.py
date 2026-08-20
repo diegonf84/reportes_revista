@@ -40,8 +40,14 @@ from modules.report_generation import (
 from modules.period_pipeline import (
     PipelineBusyError,
     PipelineExecutionError,
+    pipeline_lock,
     run_period_pipeline,
     run_tables_pipeline,
+)
+from export_parquet.run_all_and_upload import (
+    S3ExportError,
+    get_latest_period,
+    run_all_and_upload,
 )
 from modules.period_reload import (
     PeriodReloadError,
@@ -208,6 +214,43 @@ def api_generate_all_tables():
             'success': False,
             'status': 'failed',
             'error': 'No se pudieron generar todas las tablas.',
+        }), 500
+
+
+@data_processing_bp.route('/api/upload-parquet-to-s3', methods=['POST'])
+def api_upload_parquet_to_s3():
+    """Regenerate historical Parquet files and upload them using the latest period."""
+    database_path = os.getenv('DATABASE')
+    if not database_path:
+        return jsonify({'success': False, 'error': 'La base de datos no está configurada.'}), 500
+
+    try:
+        latest_period = get_latest_period(database_path)
+        with pipeline_lock(database_path, latest_period):
+            result = run_all_and_upload(
+                latest_period,
+                database_path=database_path,
+            )
+        return jsonify({
+            'success': True,
+            'message': (
+                f'Se generaron y subieron {result["uploaded_count"]} archivos Parquet '
+                f'hasta el período {latest_period}.'
+            ),
+            **result,
+        })
+    except PipelineBusyError as error:
+        return jsonify({'success': False, 'status': 'busy', 'error': str(error)}), 409
+    except ValueError as error:
+        return jsonify({'success': False, 'status': 'failed', 'error': str(error)}), 400
+    except S3ExportError as error:
+        return jsonify({'success': False, 'status': 'failed', 'error': str(error)}), 500
+    except Exception:
+        logging.exception('Error inesperado generando y subiendo Parquet a S3')
+        return jsonify({
+            'success': False,
+            'status': 'failed',
+            'error': 'No se pudo completar la publicación en S3.',
         }), 500
 
 

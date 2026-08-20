@@ -1,14 +1,14 @@
 """
 Export historical subramos data with corregida logic to parquet file.
 
-This script generates a parquet file with 5 years of subramo-level data,
+This script generates a parquet file with 6 years of subramo-level data,
 applying the same corregida logic as crea_tabla_subramos_corregida.py
 to ALL periods and ALL concepts (from conceptos_reportes where es_subramo = TRUE).
 
 Usage:
     python export_parquet/export_subramos_parquet.py --max_period 202503
 
-This will generate data from 202002 to 202503 (5 complete years).
+This will generate data from 201902 to 202503 (6 complete years).
 """
 
 import pandas as pd
@@ -60,9 +60,9 @@ def calculate_periods(periodo_actual: int) -> dict:
 
 
 def generate_period_list(max_period: int) -> list:
-    """Generate list of periods for 5 complete years"""
+    """Generate list of periods for 6 complete years"""
     max_year = int(str(max_period)[:4])
-    start_year = max_year - 5
+    start_year = max_year - 6
 
     periods = []
     for year in range(start_year, max_year + 1):

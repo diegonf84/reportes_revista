@@ -182,7 +182,7 @@ python excel_generators/ranking_comparativo.py 202501
 
 #### **Fase 4: Export a Parquet + Upload a S3 (visualización)**
 ```bash
-# 7. Generar los 3 parquet históricos (5 años) y subirlos a S3 en un solo paso
+# 7. Generar los 3 parquet históricos (6 años) y subirlos a S3 en un solo paso
 python export_parquet/run_all_and_upload.py --max_period 202503
 ```
 

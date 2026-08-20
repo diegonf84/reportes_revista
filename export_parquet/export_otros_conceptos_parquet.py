@@ -1,7 +1,7 @@
 """
 Export historical otros_conceptos (company-level financial data) to parquet file.
 
-This script generates a parquet file with 5 years of company-level financial data,
+This script generates a parquet file with 6 years of company-level financial data,
 using concepts from conceptos_reportes where es_subramo = FALSE.
 
 These are balance/financial concepts like:
@@ -14,7 +14,7 @@ NO corregida logic needed - these are company-level totals.
 Usage:
     python export_parquet/export_otros_conceptos_parquet.py --max_period 202503
 
-This will generate data from 202002 to 202503 (5 complete years).
+This will generate data from 201902 to 202503 (6 complete years).
 """
 
 import pandas as pd
@@ -34,9 +34,9 @@ logger = logging.getLogger(__name__)
 
 
 def generate_period_list(max_period: int) -> list:
-    """Generate list of periods for 5 complete years"""
+    """Generate list of periods for 6 complete years"""
     max_year = int(str(max_period)[:4])
-    start_year = max_year - 5
+    start_year = max_year - 6
 
     periods = []
     for year in range(start_year, max_year + 1):

@@ -66,7 +66,7 @@ def upload_file_to_s3(file_path: str, bucket_name: str, s3_key: str,
 
 def upload_parquet_files(bucket_name: str, input_dir: str = "output/parquet",
                          prefix: str = "", aws_access_key: str = None,
-                         aws_secret_key: str = None, region_name: str = None) -> None:
+                         aws_secret_key: str = None, region_name: str = None) -> dict:
     """
     Upload all parquet files to S3.
 
@@ -94,6 +94,8 @@ def upload_parquet_files(bucket_name: str, input_dir: str = "output/parquet",
 
     success_count = 0
     failed_files = []
+    missing_files = []
+    uploaded_files = []
 
     for filename in parquet_files:
         file_path = os.path.join(input_dir, filename)
@@ -101,6 +103,7 @@ def upload_parquet_files(bucket_name: str, input_dir: str = "output/parquet",
         # Check if file exists
         if not os.path.exists(file_path):
             logger.warning(f"⚠️  File not found: {file_path} - skipping")
+            missing_files.append(filename)
             continue
 
         # Construct S3 key
@@ -110,6 +113,7 @@ def upload_parquet_files(bucket_name: str, input_dir: str = "output/parquet",
         if upload_file_to_s3(file_path, bucket_name, s3_key,
                             aws_access_key, aws_secret_key, region_name):
             success_count += 1
+            uploaded_files.append(filename)
         else:
             failed_files.append(filename)
 
@@ -121,7 +125,18 @@ def upload_parquet_files(bucket_name: str, input_dir: str = "output/parquet",
         logger.info(f"  ❌ Failed to upload: {len(failed_files)} files")
         for filename in failed_files:
             logger.info(f"     - {filename}")
+    if missing_files:
+        logger.info(f"  ⚠️ Missing locally: {len(missing_files)} files")
+        for filename in missing_files:
+            logger.info(f"     - {filename}")
     logger.info(f"{'='*60}\n")
+
+    return {
+        "uploaded_files": uploaded_files,
+        "failed_files": failed_files,
+        "missing_files": missing_files,
+        "success_count": success_count,
+    }
 
 
 def main():

@@ -388,7 +388,7 @@ python excel_generators/sueldos_y_gastos.py 202501
 ## Export a Parquet + Upload a S3 (para visualización)
 
 La carpeta `export_parquet/` contiene scripts que generan archivos Parquet históricos
-(últimos 5 años) y los suben a un bucket S3 para ser consumidos por Superset u otras
+(últimos 6 años) y los suben a un bucket S3 para ser consumidos por Superset u otras
 herramientas de visualización.
 
 ### Configuración de variables de entorno
@@ -409,7 +409,10 @@ S3_PREFIX=            # opcional, ej: "revista/parquet"
 pidiendo el `max_period` una única vez.
 
 ```bash
-# Generar los 3 parquet (5 años hasta 202503) y subir a S3
+# Usar automáticamente el último período disponible
+python export_parquet/run_all_and_upload.py
+
+# Generar los 3 parquet (6 años hasta 202503) y subir a S3
 python export_parquet/run_all_and_upload.py --max_period 202503
 ```
 
@@ -422,18 +425,22 @@ python export_parquet/run_all_and_upload.py --max_period 202503
 Valida las credenciales AWS al inicio para fallar rápido si faltan, y muestra el
 tiempo de cada paso.
 
+La pantalla **Procesamiento completo** expone la misma ejecución mediante el botón
+**Subir a S3**. No solicita período: toma `MAX(periodo)` de `datos_balance`, regenera
+los tres Parquet históricos y sólo informa éxito si los tres fueron subidos.
+
 ### Scripts individuales (uso standalone)
 
 Los scripts siguen funcionando por separado si hace falta regenerar solo uno:
 
 ```bash
-# Generar parquet de subramos histórico (5 años)
+# Generar parquet de subramos histórico (6 años)
 python export_parquet/export_subramos_parquet.py --max_period 202503
 
-# Generar parquet de ramos histórico (5 años)
+# Generar parquet de ramos histórico (6 años)
 python export_parquet/export_ramos_parquet.py --max_period 202503
 
-# Generar parquet de otros conceptos histórico (5 años)
+# Generar parquet de otros conceptos histórico (6 años)
 python export_parquet/export_otros_conceptos_parquet.py --max_period 202503
 
 # Generar parquet de una sola compañía
