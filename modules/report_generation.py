@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 import shutil
 import sqlite3
+import subprocess
+import sys
+import tempfile
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -150,6 +154,25 @@ EXCEL_REPORT_NAMES = (
 
 class ReportValidationError(ValueError):
     """Raised when report inputs or staged outputs violate their contract."""
+
+
+class ReportGenerationFailure(RuntimeError):
+    """Functional report-generation failure safe to expose through the UI."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status: str = "failed",
+        logs: list[str] | None = None,
+        failed_csv_reports: list[str] | None = None,
+        failed_excel_reports: list[str] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.status = status
+        self.logs = logs or []
+        self.failed_csv_reports = failed_csv_reports or []
+        self.failed_excel_reports = failed_excel_reports or []
 
 
 def expected_historical_periods(period: int) -> set[int]:
@@ -390,3 +413,181 @@ def publish_staged_directories(
         for backup in backups.values():
             if backup.exists():
                 shutil.rmtree(backup)
+
+
+def extract_failed_reports(output: str) -> list[str]:
+    """Extract report names from the functional CLI failure summary."""
+    failed = []
+    for line in output.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("❌") or "falló:" not in stripped:
+            continue
+        report_name = stripped.removeprefix("❌").split("falló:", 1)[0].strip()
+        if report_name:
+            failed.append(report_name)
+    return failed
+
+
+def generate_official_reports(
+    project_root: str | Path,
+    database_path: str | Path,
+    period: int,
+) -> dict:
+    """Generate, validate and atomically publish CSV and Excel for one period."""
+    validate_report_preflight(database_path, period)
+
+    root = Path(project_root)
+    period_text = str(period)
+    logs: list[str] = []
+    csv_script_path = root / "ending_files" / "generate_all_reports.py"
+    excel_script_path = root / "excel_generators" / "generate_all_excel.py"
+    official_csv_dir = root / "ending_files" / period_text
+    official_excel_dir = root / "excel_final_files" / period_text
+
+    try:
+        with tempfile.TemporaryDirectory(
+            prefix=".report-generation-",
+            dir=root,
+        ) as temporary_root:
+            staging_root = Path(temporary_root)
+            staging_csv_root = staging_root / "ending_files"
+            staging_csv_dir = staging_csv_root / period_text
+            staging_excel_dir = staging_root / "excel_final_files" / period_text
+
+            logs.append("Iniciando generación de archivos CSV...")
+            csv_result = subprocess.run(
+                [
+                    sys.executable,
+                    str(csv_script_path),
+                    period_text,
+                    "--output_dir",
+                    str(staging_csv_root),
+                ],
+                capture_output=True,
+                text=True,
+                cwd=str(root),
+                timeout=300,
+            )
+            if csv_result.returncode != 0:
+                failed = extract_failed_reports(csv_result.stdout)
+                logging.error(
+                    "Falló la generación CSV para %s. stdout=%s stderr=%s",
+                    period_text,
+                    csv_result.stdout,
+                    csv_result.stderr,
+                )
+                if failed:
+                    status = "partial" if len(failed) < len(CSV_CONTRACTS) else "failed"
+                    message = (
+                        f"No se generaron {len(failed)} archivos CSV: "
+                        f"{', '.join(failed)}."
+                    )
+                else:
+                    status = "failed"
+                    message = "Los archivos CSV no se generaron."
+                raise ReportGenerationFailure(
+                    message,
+                    status=status,
+                    logs=logs,
+                    failed_csv_reports=failed,
+                )
+
+            try:
+                csv_files = validate_csv_outputs(staging_csv_dir, period_text)
+            except ReportValidationError as error:
+                logging.error(
+                    "Falló la validación CSV para %s: %s", period_text, error
+                )
+                raise ReportGenerationFailure(
+                    "Los archivos CSV no superaron los controles finales.",
+                    logs=logs,
+                ) from error
+
+            logs.append(f"{len(csv_files)} archivos CSV generados y validados.")
+            logs.append("Iniciando generación de archivos Excel...")
+            excel_result = subprocess.run(
+                [
+                    sys.executable,
+                    str(excel_script_path),
+                    period_text,
+                    "--csv-dir",
+                    str(staging_csv_dir),
+                    "--output-dir",
+                    str(staging_excel_dir),
+                ],
+                capture_output=True,
+                text=True,
+                cwd=str(root),
+                timeout=600,
+            )
+            if excel_result.returncode != 0:
+                failed = extract_failed_reports(excel_result.stdout)
+                logging.error(
+                    "Falló la generación Excel para %s. stdout=%s stderr=%s",
+                    period_text,
+                    excel_result.stdout,
+                    excel_result.stderr,
+                )
+                if failed:
+                    status = (
+                        "partial" if len(failed) < len(EXCEL_REPORT_NAMES) else "failed"
+                    )
+                    message = (
+                        f"No se generaron {len(failed)} archivos Excel: "
+                        f"{', '.join(failed)}."
+                    )
+                else:
+                    status = "failed"
+                    message = "Los archivos Excel no se generaron."
+                raise ReportGenerationFailure(
+                    message,
+                    status=status,
+                    logs=logs,
+                    failed_excel_reports=failed,
+                )
+
+            try:
+                excel_files = validate_excel_outputs(staging_excel_dir, period_text)
+            except ReportValidationError as error:
+                logging.error(
+                    "Falló la validación Excel para %s: %s", period_text, error
+                )
+                raise ReportGenerationFailure(
+                    "Los archivos Excel no superaron los controles finales.",
+                    logs=logs,
+                ) from error
+
+            logs.append(f"{len(excel_files)} archivos Excel generados y validados.")
+            publish_staged_directories(
+                (
+                    (staging_csv_dir, official_csv_dir),
+                    (staging_excel_dir, official_excel_dir),
+                )
+            )
+            logs.append("La salida oficial del período fue actualizada.")
+
+        return {
+            "status": "success",
+            "logs": logs,
+            "message": (
+                f"Todos los reportes fueron generados y validados para {period_text}"
+            ),
+            "csv_directory": str(official_csv_dir),
+            "excel_directory": str(official_excel_dir),
+            "csv_count": len(csv_files),
+            "excel_count": len(excel_files),
+            "periodo": period_text,
+        }
+    except ReportGenerationFailure:
+        raise
+    except subprocess.TimeoutExpired as error:
+        raise ReportGenerationFailure(
+            "El proceso excedió el tiempo límite. La salida oficial no fue modificada.",
+            logs=logs,
+        ) from error
+    except Exception as error:
+        logging.exception("Error inesperado generando reportes para %s", period_text)
+        raise ReportGenerationFailure(
+            "La generación no pudo completarse. La salida oficial no fue modificada.",
+            logs=logs,
+        ) from error

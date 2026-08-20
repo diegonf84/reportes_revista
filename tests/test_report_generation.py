@@ -11,6 +11,7 @@ from openpyxl import Workbook
 
 from app.routes import data_processing
 from ending_files.generate_all_reports import generate_all_reports
+from modules import report_generation
 from modules.report_generation import (
     CORRECTED_TABLES,
     CSV_CONTRACTS,
@@ -192,8 +193,8 @@ class ReportGenerationEndpointTests(unittest.TestCase):
         self.client = self.app.test_client()
 
     @patch.dict(os.environ, {"DATABASE": "reports.sqlite"})
-    @patch.object(data_processing, "validate_report_preflight")
-    @patch.object(data_processing.subprocess, "run")
+    @patch.object(report_generation, "validate_report_preflight")
+    @patch.object(report_generation.subprocess, "run")
     def test_endpoint_reports_partial_csv_failure_without_technical_cause(
         self,
         run_mock,

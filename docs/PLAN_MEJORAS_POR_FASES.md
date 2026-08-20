@@ -8,7 +8,7 @@ Checklist vivo para fortalecer la operación, los controles y la mantenibilidad 
 |---|---|---:|---|
 | 1 | Generación confiable de reportes | Alta | Completada |
 | 2 | Recarga segura de períodos | Alta | Completada |
-| 3 | Pipeline completo por período | Alta | Pendiente |
+| 3 | Pipeline completo por período | Alta | Completada |
 | 4 | Mensajes, progreso y experiencia operativa | Media | Pendiente |
 | 5 | Controles de datos maestros y conciliación | Alta | Pendiente |
 | 6 | Tests automatizados | Alta | Pendiente |
@@ -16,8 +16,8 @@ Checklist vivo para fortalecer la operación, los controles y la mantenibilidad 
 | 8 | Seguridad y preparación para despliegue | Media | Pendiente |
 
 **Estado del plan:** en ejecución  
-**Fase activa:** Ninguna; próxima sugerida: Fase 3 — Pipeline completo por período
-**Última actualización:** 2026-08-19
+**Fase activa:** Ninguna; próxima sugerida: Fase 4 — Mensajes, progreso y experiencia operativa
+**Última actualización:** 2026-08-20
 
 ## Criterios acordados
 
@@ -129,17 +129,17 @@ Una recarga fallida deja intactos el ZIP vigente y los datos originales del per�
 
 ### Checklist
 
-- [ ] Definir formalmente las etapas y dependencias del pipeline completo.
-- [ ] Incorporar una acción normal de “Procesar período completo”.
-- [ ] Ejecutar en orden períodos recientes, bases, conceptos, tablas corregidas, CSV y Excel.
-- [ ] Detener el pipeline ante el primer fallo que invalide pasos posteriores.
-- [ ] No marcar etapas posteriores como completas si una dependencia falló.
-- [ ] Mantener las acciones individuales como herramientas avanzadas.
-- [ ] Seleccionar un único período de trabajo y reutilizarlo durante todo el flujo.
-- [ ] Evitar defaults basados en la fecha actual cuando existe un período seleccionado.
-- [ ] Mostrar qué etapas ya están actualizadas y cuáles deben regenerarse.
-- [ ] Evitar dos pipelines simultáneos sobre la misma base o período.
-- [ ] Definir qué etapas deben repetirse después de cambiar compañías, conceptos o parámetros.
+- [x] Definir formalmente las etapas y dependencias del pipeline completo.
+- [x] Incorporar una acción normal de “Procesar período completo”.
+- [x] Ejecutar en orden períodos recientes, bases, conceptos, tablas corregidas, CSV y Excel.
+- [x] Detener el pipeline ante el primer fallo que invalide pasos posteriores.
+- [x] No marcar etapas posteriores como completas si una dependencia falló.
+- [x] Mantener las acciones individuales como herramientas avanzadas.
+- [x] Seleccionar un único período de trabajo y reutilizarlo durante todo el flujo.
+- [x] Evitar defaults basados en la fecha actual cuando existe un período seleccionado.
+- [x] Informar si el flujo terminó o en qué etapa se detuvo, sin agregar un panel persistente.
+- [x] Evitar dos pipelines simultáneos sobre la misma base o período.
+- [x] Regenerar siempre el flujo completo seleccionado, sin acoplar estados a otros formularios o maestros.
 
 ### Criterio de cierre
 
@@ -147,10 +147,26 @@ Desde la interfaz se puede seleccionar un período y completar todo el flujo req
 
 ### Evidencia de cierre
 
-- Fecha:
+- Fecha: 2026-08-20.
 - Pruebas ejecutadas:
+  - Suite completa: 27 pruebas aprobadas con `python -m unittest discover -s tests` en el entorno `revista_tr_cuadros`.
+  - Pipeline integral aislado sobre una copia temporal de la base: cinco etapas completadas para `202602`, con 13 CSV y 14 Excel validados y publicados únicamente dentro del directorio temporal.
+  - Fallo forzado en la segunda etapa: se detuvo la ejecución, la etapa fallida quedó registrada y las posteriores permanecieron incompletas.
+  - Exclusión mutua: una segunda ejecución sobre la misma base fue rechazada mientras el primer lock estaba activo.
+  - Renderizado Flask: la pantalla de tablas respondió `200` e incluye la generación conjunta además de los formularios individuales.
 - Archivos afectados:
+  - `modules/period_pipeline.py` — definición de etapas, dependencias, validaciones, detención ante fallos y lock entre procesos.
+  - `modules/report_generation.py` — generación CSV/Excel reutilizable por la acción individual y por el pipeline.
+  - `app/routes/data_processing.py` — endpoints separados para generar todas las tablas y para el procesamiento completo.
+  - `app/templates/data_processing/table_creation.html` — generación conjunta por período y herramientas individuales de tablas.
+  - `app/templates/data_processing/full_processing.html` — período y único botón para ejecutar tablas, CSV y Excel.
+  - `app/templates/base.html` — acceso independiente a Procesamiento completo.
+  - `tests/test_period_pipeline.py` y `tests/test_report_generation.py` — cobertura del orquestador y adaptación del generador reutilizable.
 - Observaciones:
+  - Dependencias formales: períodos recientes → bases y conceptos; bases → tablas corregidas; conceptos y tablas corregidas → reportes CSV/Excel.
+  - La pantalla de tablas permite generar cada etapa individualmente o generar todas en orden con un único período; esta última acción no genera reportes.
+  - La pantalla existente de Reportes se conservó sin reorganizar sus formularios.
+  - Procesamiento completo quedó como una tercera pantalla independiente y mínima; ejecuta siempre el flujo entero para el período seleccionado.
 
 ---
 

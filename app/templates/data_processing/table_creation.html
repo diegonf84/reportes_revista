@@ -36,6 +36,41 @@
         </div>
     </div>
 
+    <!-- Generate all tables -->
+    <div class="row justify-content-center mb-4">
+        <div class="col-lg-8">
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-play-fill"></i> Generar todas las tablas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">
+                        Ejecuta todas las etapas de tablas en el orden correcto usando un único período.
+                    </p>
+                    <form id="all-tables-form">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-7">
+                                <label for="all_tables_periodo" class="form-label fw-bold">Período</label>
+                                <input type="text" class="form-control" id="all_tables_periodo" name="periodo"
+                                       placeholder="Ej: 202602" maxlength="6" required>
+                                <div class="form-text">Formato YYYYPP, con trimestre 01 a 04.</div>
+                            </div>
+                            <div class="col-md-5 d-grid">
+                                <button type="submit" class="btn btn-primary" id="all-tables-submit">
+                                    <i class="bi bi-play-fill"></i> Generar todas las tablas
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h4 class="mb-3"><i class="bi bi-tools"></i> Generación individual</h4>
+
     <!-- Row 1: Preparatory Steps -->
     <div class="row">
         <!-- Create Recent Periods Table -->
@@ -436,6 +471,23 @@ document.addEventListener('DOMContentLoaded', function() {
             showAlert('danger', 'Error de conexión');
         });
     }
+
+    // All Tables Form
+    document.getElementById('all-tables-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const periodo = document.getElementById('all_tables_periodo').value.trim();
+        if (!/^\d{4}(0[1-4])$/.test(periodo)) {
+            showAlert('warning', 'Ingrese un período válido con formato YYYYPP');
+            return;
+        }
+
+        makeRequest(
+            '/data-processing/api/generate-all-tables',
+            {periodo: parseInt(periodo)},
+            'Generación de todas las tablas'
+        );
+    });
 
     // Recent Periods Form
     document.getElementById('recent-periods-form').addEventListener('submit', function(e) {

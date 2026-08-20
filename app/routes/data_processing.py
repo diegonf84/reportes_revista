@@ -2,9 +2,7 @@ import os
 import logging
 import sqlite3
 import json
-import subprocess
 import sys
-import tempfile
 from io import StringIO
 from pathlib import Path
 from werkzeug.utils import secure_filename
@@ -35,13 +33,15 @@ from modules.file_utils import check_mdb_file_exists, list_available_mdb_files, 
 from modules.common import get_mdb_files_directory
 from modules.compare_csv_reports import compare_all_csv_reports, generate_comparison_report
 from modules.report_generation import (
-    CSV_CONTRACTS,
-    EXCEL_REPORT_NAMES,
+    ReportGenerationFailure,
     ReportValidationError,
-    publish_staged_directories,
-    validate_csv_outputs,
-    validate_excel_outputs,
-    validate_report_preflight,
+    generate_official_reports,
+)
+from modules.period_pipeline import (
+    PipelineBusyError,
+    PipelineExecutionError,
+    run_period_pipeline,
+    run_tables_pipeline,
 )
 from modules.period_reload import (
     PeriodReloadError,
@@ -52,21 +52,6 @@ from modules.period_reload import (
 )
 
 data_processing_bp = Blueprint('data_processing', __name__)
-
-
-def _extract_failed_reports(output: str) -> list[str]:
-    """Obtiene los nombres de los reportes fallidos desde la salida del generador."""
-    failed_reports = []
-    failure_marker = ' falló:'
-
-    for line in output.splitlines():
-        normalized_line = line.strip()
-        if normalized_line.startswith('❌ ') and failure_marker in normalized_line:
-            report_name = normalized_line.removeprefix('❌ ').split(failure_marker, 1)[0].strip()
-            if report_name:
-                failed_reports.append(report_name)
-
-    return failed_reports
 
 
 class LogCapture:
@@ -139,6 +124,91 @@ def table_processing():
                          base_subramos_form=base_subramos_form,
                          concepts_form=concepts_form,
                          subramos_form=subramos_form)
+
+
+@data_processing_bp.route('/full-processing')
+def full_processing():
+    """Página independiente para procesar tablas y generar reportes."""
+    return render_template('data_processing/full_processing.html')
+
+
+@data_processing_bp.route('/api/process-full-period', methods=['POST'])
+def api_process_full_period():
+    """Run the complete dependency-ordered pipeline for a selected period."""
+    data = request.get_json(silent=True) or {}
+    periodo = data.get('periodo')
+    database_path = os.getenv('DATABASE')
+    if not periodo:
+        return jsonify({'success': False, 'error': 'El período es requerido.'}), 400
+    if not database_path:
+        return jsonify({'success': False, 'error': 'La base de datos no está configurada.'}), 500
+
+    try:
+        result = run_period_pipeline(int(periodo), database_path, project_root)
+        return jsonify({
+            'success': True,
+            'message': f'El período {periodo} quedó procesado y sus reportes fueron publicados.',
+            **result,
+        })
+    except PipelineBusyError as error:
+        return jsonify({'success': False, 'status': 'busy', 'error': str(error)}), 409
+    except PipelineExecutionError as error:
+        return jsonify({
+            'success': False,
+            'status': 'failed',
+            'failed_stage': error.stage.key,
+            'stages': error.statuses,
+            'error': str(error),
+        }), 500
+    except (TypeError, ValueError) as error:
+        return jsonify({'success': False, 'status': 'failed', 'error': str(error)}), 400
+    except Exception:
+        logging.exception('Error inesperado procesando el período %s', periodo)
+        return jsonify({
+            'success': False,
+            'status': 'failed',
+            'error': 'El período no pudo procesarse completamente.',
+        }), 500
+
+
+@data_processing_bp.route('/api/generate-all-tables', methods=['POST'])
+def api_generate_all_tables():
+    """Generate every required table in dependency order for one period."""
+    data = request.get_json(silent=True) or {}
+    periodo = data.get('periodo')
+    database_path = os.getenv('DATABASE')
+
+    if not periodo:
+        return jsonify({'success': False, 'error': 'El período es requerido.'}), 400
+    if not database_path:
+        return jsonify({'success': False, 'error': 'La base de datos no está configurada.'}), 500
+
+    try:
+        result = run_tables_pipeline(int(periodo), database_path, project_root)
+        return jsonify({
+            'success': True,
+            'message': f'Todas las tablas quedaron generadas para el período {periodo}.',
+            **result,
+        })
+    except PipelineBusyError as error:
+        return jsonify({'success': False, 'status': 'busy', 'error': str(error)}), 409
+    except PipelineExecutionError as error:
+        return jsonify({
+            'success': False,
+            'status': 'failed',
+            'failed_stage': error.stage.key,
+            'stages': error.statuses,
+            'error': str(error),
+        }), 500
+    except (TypeError, ValueError) as error:
+        return jsonify({'success': False, 'status': 'failed', 'error': str(error)}), 400
+    except Exception:
+        logging.exception('Error inesperado generando tablas para %s', periodo)
+        return jsonify({
+            'success': False,
+            'status': 'failed',
+            'error': 'No se pudieron generar todas las tablas.',
+        }), 500
 
 
 @data_processing_bp.route('/api/check-file-status', methods=['POST'])
@@ -617,182 +687,37 @@ def api_generate_all_reports():
 
     try:
         periodo_int = int(periodo)
-        periodo_str = str(periodo_int)
         database_path = os.getenv('DATABASE')
         if not database_path:
             raise ReportValidationError('La base de datos no está configurada.')
-        validate_report_preflight(database_path, periodo_int)
+        result = generate_official_reports(project_root, database_path, periodo_int)
     except (TypeError, ValueError, ReportValidationError) as error:
         return jsonify({
             'success': False,
             'status': 'failed',
             'error': str(error),
         }), 400
-
-    logs = []
-    csv_script_path = project_root / 'ending_files' / 'generate_all_reports.py'
-    excel_script_path = project_root / 'excel_generators' / 'generate_all_excel.py'
-    official_csv_dir = project_root / 'ending_files' / periodo_str
-    official_excel_dir = project_root / 'excel_final_files' / periodo_str
-
-    try:
-        with tempfile.TemporaryDirectory(
-            prefix='.report-generation-',
-            dir=project_root,
-        ) as temporary_root:
-            staging_root = Path(temporary_root)
-            staging_csv_root = staging_root / 'ending_files'
-            staging_csv_dir = staging_csv_root / periodo_str
-            staging_excel_dir = staging_root / 'excel_final_files' / periodo_str
-
-            logs.append('Iniciando generación de archivos CSV...')
-            result_csv = subprocess.run(
-                [
-                    sys.executable,
-                    str(csv_script_path),
-                    periodo_str,
-                    '--output_dir',
-                    str(staging_csv_root),
-                ],
-                capture_output=True,
-                text=True,
-                cwd=str(project_root),
-                timeout=300,
-            )
-
-            if result_csv.returncode != 0:
-                failed_reports = _extract_failed_reports(result_csv.stdout)
-                logging.error(
-                    'Falló la generación CSV para %s. stdout=%s stderr=%s',
-                    periodo_str,
-                    result_csv.stdout,
-                    result_csv.stderr,
-                )
-                if failed_reports:
-                    message = (
-                        f"No se generaron {len(failed_reports)} archivos CSV: "
-                        f"{', '.join(failed_reports)}."
-                    )
-                    status = (
-                        'partial'
-                        if len(failed_reports) < len(CSV_CONTRACTS)
-                        else 'failed'
-                    )
-                else:
-                    message = 'Los archivos CSV no se generaron.'
-                    status = 'failed'
-                return jsonify({
-                    'success': False,
-                    'status': status,
-                    'error': message,
-                    'logs': logs,
-                    'failed_csv_reports': failed_reports,
-                }), 500
-
-            try:
-                csv_files = validate_csv_outputs(staging_csv_dir, periodo_str)
-            except ReportValidationError as error:
-                logging.error('Falló la validación CSV para %s: %s', periodo_str, error)
-                return jsonify({
-                    'success': False,
-                    'status': 'failed',
-                    'error': 'Los archivos CSV no superaron los controles finales.',
-                    'logs': logs,
-                }), 500
-
-            logs.append(f'{len(csv_files)} archivos CSV generados y validados.')
-            logs.append('Iniciando generación de archivos Excel...')
-            result_excel = subprocess.run(
-                [
-                    sys.executable,
-                    str(excel_script_path),
-                    periodo_str,
-                    '--csv-dir',
-                    str(staging_csv_dir),
-                    '--output-dir',
-                    str(staging_excel_dir),
-                ],
-                capture_output=True,
-                text=True,
-                cwd=str(project_root),
-                timeout=600,
-            )
-
-            if result_excel.returncode != 0:
-                failed_reports = _extract_failed_reports(result_excel.stdout)
-                logging.error(
-                    'Falló la generación Excel para %s. stdout=%s stderr=%s',
-                    periodo_str,
-                    result_excel.stdout,
-                    result_excel.stderr,
-                )
-                if failed_reports:
-                    message = (
-                        f"No se generaron {len(failed_reports)} archivos Excel: "
-                        f"{', '.join(failed_reports)}."
-                    )
-                    status = (
-                        'partial'
-                        if len(failed_reports) < len(EXCEL_REPORT_NAMES)
-                        else 'failed'
-                    )
-                else:
-                    message = 'Los archivos Excel no se generaron.'
-                    status = 'failed'
-                return jsonify({
-                    'success': False,
-                    'status': status,
-                    'error': message,
-                    'logs': logs,
-                    'failed_excel_reports': failed_reports,
-                }), 500
-
-            try:
-                excel_files = validate_excel_outputs(staging_excel_dir, periodo_str)
-            except ReportValidationError as error:
-                logging.error('Falló la validación Excel para %s: %s', periodo_str, error)
-                return jsonify({
-                    'success': False,
-                    'status': 'failed',
-                    'error': 'Los archivos Excel no superaron los controles finales.',
-                    'logs': logs,
-                }), 500
-
-            logs.append(f'{len(excel_files)} archivos Excel generados y validados.')
-
-            publish_staged_directories((
-                (staging_csv_dir, official_csv_dir),
-                (staging_excel_dir, official_excel_dir),
-            ))
-            logs.append('La salida oficial del período fue actualizada.')
-
-        return jsonify({
-            'success': True,
-            'status': 'success',
-            'logs': logs,
-            'message': f'Todos los reportes fueron generados y validados para {periodo_str}',
-            'csv_directory': str(official_csv_dir),
-            'excel_directory': str(official_excel_dir),
-            'csv_count': len(csv_files),
-            'excel_count': len(excel_files),
-            'periodo': periodo_str,
-        })
-
-    except subprocess.TimeoutExpired:
-        return jsonify({
+    except ReportGenerationFailure as error:
+        payload = {
             'success': False,
-            'status': 'failed',
-            'error': 'El proceso excedió el tiempo límite. La salida oficial no fue modificada.',
-            'logs': logs,
-        }), 500
-    except Exception as error:
-        logging.exception('Error inesperado generando reportes para %s', periodo_str)
+            'status': error.status,
+            'error': str(error),
+            'logs': error.logs,
+        }
+        if error.failed_csv_reports:
+            payload['failed_csv_reports'] = error.failed_csv_reports
+        if error.failed_excel_reports:
+            payload['failed_excel_reports'] = error.failed_excel_reports
+        return jsonify(payload), 500
+    except Exception:
+        logging.exception('Error inesperado generando reportes para %s', periodo)
         return jsonify({
             'success': False,
             'status': 'failed',
             'error': 'La generación no pudo completarse. La salida oficial no fue modificada.',
-            'logs': logs,
         }), 500
+
+    return jsonify({'success': True, **result})
 
 
 @data_processing_bp.route('/api/compare-csv-reports', methods=['POST'])
@@ -962,7 +887,6 @@ def add_concepto():
                     form.es_subramo.data
                 ))
                 conn.commit()
-                
             flash('Concepto agregado exitosamente.', 'success')
             return redirect(url_for('data_processing.list_conceptos'))
             
@@ -1028,7 +952,6 @@ def edit_concepto(concepto_id):
                     concepto_id
                 ))
                 conn.commit()
-                
                 flash('Concepto actualizado exitosamente.', 'success')
                 return redirect(url_for('data_processing.list_conceptos'))
             
@@ -1065,8 +988,7 @@ def delete_concepto(concepto_id):
             delete_query = "DELETE FROM conceptos_reportes WHERE id = ?"
             conn.execute(delete_query, (concepto_id,))
             conn.commit()
-            
-            flash('Concepto eliminado exitosamente.', 'success')
+        flash('Concepto eliminado exitosamente.', 'success')
     
     except Exception as e:
         flash(f'Error al eliminar concepto: {str(e)}', 'error')

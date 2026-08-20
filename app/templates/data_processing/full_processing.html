@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Procesamiento completo - Sistema de Reportes{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Procesamiento completo</li>
+                </ol>
+            </nav>
+            <h2><i class="bi bi-play-circle"></i> Procesamiento completo</h2>
+            <p class="text-muted">
+                Genera en orden las tablas necesarias, los archivos CSV y los Excel para un período ya cargado.
+            </p>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">Procesar un período</h5>
+                </div>
+                <div class="card-body p-4">
+                    <form id="full-processing-form">
+                        <div class="mb-4">
+                            <label for="periodo" class="form-label fw-bold">Período</label>
+                            <input type="text" class="form-control form-control-lg" id="periodo"
+                                   name="periodo" placeholder="Ej: 202602" maxlength="6" required>
+                            <div class="form-text">Formato YYYYPP, con trimestre 01 a 04.</div>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg" id="submit-button">
+                                <i class="bi bi-play-fill"></i> Procesar período completo
+                            </button>
+                        </div>
+                    </form>
+
+                    <div id="processing-status" class="d-none mt-4" aria-live="polite">
+                        <div class="d-flex align-items-center text-primary">
+                            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                            <span>Generando tablas, CSV y Excel. Este proceso puede demorar varios minutos.</span>
+                        </div>
+                    </div>
+
+                    <div id="processing-result" class="mt-4"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('full-processing-form');
+    const periodInput = document.getElementById('periodo');
+    const submitButton = document.getElementById('submit-button');
+    const status = document.getElementById('processing-status');
+    const result = document.getElementById('processing-result');
+
+    function escapeHtml(value) {
+        const element = document.createElement('div');
+        element.textContent = value || '';
+        return element.innerHTML;
+    }
+
+    form.addEventListener('submit', function(event) {
+        event.preventDefault();
+        const period = periodInput.value.trim();
+
+        if (!/^\d{4}(0[1-4])$/.test(period)) {
+            result.innerHTML = '<div class="alert alert-warning mb-0">Ingrese un período válido con formato YYYYPP.</div>';
+            return;
+        }
+
+        result.innerHTML = '';
+        status.classList.remove('d-none');
+        submitButton.disabled = true;
+        periodInput.disabled = true;
+
+        fetch('/data-processing/api/process-full-period', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({periodo: parseInt(period)})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const reports = data.reports || {};
+                result.innerHTML = `<div class="alert alert-success mb-0">
+                    <h6 class="alert-heading"><i class="bi bi-check-circle"></i> Procesamiento completado</h6>
+                    <p class="mb-1">${escapeHtml(data.message)}</p>
+                    <small>${reports.csv_count || 0} CSV y ${reports.excel_count || 0} Excel generados.</small>
+                </div>`;
+            } else {
+                result.innerHTML = `<div class="alert alert-danger mb-0">
+                    <h6 class="alert-heading"><i class="bi bi-exclamation-triangle"></i> Procesamiento interrumpido</h6>
+                    <p class="mb-0">${escapeHtml(data.error)}</p>
+                </div>`;
+            }
+        })
+        .catch(() => {
+            result.innerHTML = '<div class="alert alert-danger mb-0">No se pudo completar la comunicación con el servidor.</div>';
+        })
+        .finally(() => {
+            status.classList.add('d-none');
+            submitButton.disabled = false;
+            periodInput.disabled = false;
+        });
+    });
+});
+</script>
+{% endblock %}
