@@ -1,6 +1,6 @@
 """
 Simple routes for company management - CRUD only
-Manages datos_companias table with fields: cod_cia (numeric), nombre_corto (text), tipo_cia (text), fecha (timestamp)
+Manages datos_companias company classification fields.
 """
 
 import sys
@@ -28,6 +28,11 @@ companies_bp = Blueprint('companies', __name__, url_prefix='/companies')
 # Valid company types
 VALID_COMPANY_TYPES = ['Generales', 'Vida', 'Retiro', 'ART', 'M.T.P.P.']
 
+SSN_DROPDOWN_FIELDS = {
+    'descripcion_juridica': 'Seleccione una descripción jurídica...',
+    'tipo_actividad_ssn': 'Seleccione un tipo de actividad SSN...'
+}
+
 def get_database_path():
     """Get database path from environment"""
     from dotenv import load_dotenv
@@ -39,12 +44,13 @@ def get_all_companies():
     database_path = get_database_path()
     if not database_path or not os.path.exists(database_path):
         return []
-    
+
     try:
         with sqlite3.connect(database_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.execute("""
-                SELECT cod_cia, nombre_corto, tipo_cia, fecha 
+                SELECT cod_cia, nombre_corto, tipo_cia, fecha,
+                       descripcion_juridica, tipo_actividad_ssn
                 FROM datos_companias 
                 ORDER BY cod_cia
             """)
@@ -52,6 +58,36 @@ def get_all_companies():
     except Exception as e:
         logger.error(f"Error getting companies: {e}")
         return []
+
+def get_ssn_dropdown_choices():
+    """Get current non-empty SSN classification values from the database."""
+    database_path = get_database_path()
+    if not database_path or not os.path.exists(database_path):
+        return {field: [] for field in SSN_DROPDOWN_FIELDS}
+
+    try:
+        with sqlite3.connect(database_path) as conn:
+            choices = {}
+            for field in SSN_DROPDOWN_FIELDS:
+                rows = conn.execute(f"""
+                    SELECT DISTINCT TRIM({field})
+                    FROM datos_companias
+                    WHERE {field} IS NOT NULL
+                      AND TRIM({field}) <> ''
+                    ORDER BY 1
+                """).fetchall()
+                choices[field] = [row[0] for row in rows]
+            return choices
+    except Exception as e:
+        logger.error(f"Error getting SSN dropdown choices: {e}")
+        return {field: [] for field in SSN_DROPDOWN_FIELDS}
+
+def configure_ssn_dropdowns(form):
+    """Populate SSN classification dropdowns before form validation."""
+    choices = get_ssn_dropdown_choices()
+    for field, placeholder in SSN_DROPDOWN_FIELDS.items():
+        values = choices[field]
+        getattr(form, field).choices = [('', placeholder)] + [(value, value) for value in values]
 
 def get_company_by_code(cod_cia):
     """Get single company by code"""
@@ -63,7 +99,8 @@ def get_company_by_code(cod_cia):
         with sqlite3.connect(database_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.execute("""
-                SELECT cod_cia, nombre_corto, tipo_cia, fecha 
+                SELECT cod_cia, nombre_corto, tipo_cia, fecha,
+                       descripcion_juridica, tipo_actividad_ssn
                 FROM datos_companias 
                 WHERE cod_cia = ?
             """, (cod_cia,))
@@ -73,7 +110,8 @@ def get_company_by_code(cod_cia):
         logger.error(f"Error getting company {cod_cia}: {e}")
         return None
 
-def save_company(cod_cia, nombre_corto, tipo_cia, original_cod_cia=None):
+def save_company(cod_cia, nombre_corto, tipo_cia, original_cod_cia=None,
+                 descripcion_juridica=None, tipo_actividad_ssn=None):
     """Save or update company"""
     database_path = get_database_path()
     if not database_path:
@@ -81,6 +119,12 @@ def save_company(cod_cia, nombre_corto, tipo_cia, original_cod_cia=None):
     
     if tipo_cia not in VALID_COMPANY_TYPES:
         raise ValueError(f"Tipo de compañía inválido")
+
+    ssn_choices = get_ssn_dropdown_choices()
+    if descripcion_juridica not in ssn_choices['descripcion_juridica']:
+        raise ValueError("Descripción jurídica inválida")
+    if tipo_actividad_ssn not in ssn_choices['tipo_actividad_ssn']:
+        raise ValueError("Tipo de actividad SSN inválido")
     
     try:
         with sqlite3.connect(database_path) as conn:
@@ -88,22 +132,30 @@ def save_company(cod_cia, nombre_corto, tipo_cia, original_cod_cia=None):
                 # Update with code change
                 conn.execute("""
                     UPDATE datos_companias 
-                    SET cod_cia = ?, nombre_corto = ?, tipo_cia = ?
+                    SET cod_cia = ?, nombre_corto = ?, tipo_cia = ?,
+                        descripcion_juridica = ?, tipo_actividad_ssn = ?
                     WHERE cod_cia = ?
-                """, (cod_cia, nombre_corto, tipo_cia, original_cod_cia))
+                """, (cod_cia, nombre_corto, tipo_cia, descripcion_juridica,
+                      tipo_actividad_ssn, original_cod_cia))
             elif original_cod_cia:
                 # Update existing (no code change)
                 conn.execute("""
                     UPDATE datos_companias 
-                    SET nombre_corto = ?, tipo_cia = ?
+                    SET nombre_corto = ?, tipo_cia = ?,
+                        descripcion_juridica = ?, tipo_actividad_ssn = ?
                     WHERE cod_cia = ?
-                """, (nombre_corto, tipo_cia, cod_cia))
+                """, (nombre_corto, tipo_cia, descripcion_juridica,
+                      tipo_actividad_ssn, cod_cia))
             else:
                 # Insert new company
                 conn.execute("""
-                    INSERT INTO datos_companias (cod_cia, nombre_corto, tipo_cia, fecha)
-                    VALUES (?, ?, ?, datetime('now'))
-                """, (cod_cia, nombre_corto, tipo_cia))
+                    INSERT INTO datos_companias (
+                        cod_cia, nombre_corto, tipo_cia, fecha,
+                        descripcion_juridica, tipo_actividad_ssn
+                    )
+                    VALUES (?, ?, ?, datetime('now'), ?, ?)
+                """, (cod_cia, nombre_corto, tipo_cia, descripcion_juridica,
+                      tipo_actividad_ssn))
             conn.commit()
             return True
     except Exception as e:
@@ -135,6 +187,7 @@ def list_companies():
 def add_company():
     """Add new company"""
     form = CompanyForm()
+    configure_ssn_dropdowns(form)
     
     if form.validate_on_submit():
         try:
@@ -150,7 +203,9 @@ def add_company():
             save_company(
                 cod_cia=cod_cia,
                 nombre_corto=form.nombre_corto.data.strip(),
-                tipo_cia=form.tipo_cia.data
+                tipo_cia=form.tipo_cia.data,
+                descripcion_juridica=form.descripcion_juridica.data,
+                tipo_actividad_ssn=form.tipo_actividad_ssn.data
             )
             
             flash(f'Compañía {cod_cia} agregada exitosamente', 'success')
@@ -171,6 +226,7 @@ def edit_company(cod_cia):
         return redirect(url_for('companies.list_companies'))
     
     form = CompanyForm()
+    configure_ssn_dropdowns(form)
     
     if form.validate_on_submit():
         try:
@@ -188,7 +244,9 @@ def edit_company(cod_cia):
                 cod_cia=new_cod_cia,
                 nombre_corto=form.nombre_corto.data.strip(),
                 tipo_cia=form.tipo_cia.data,
-                original_cod_cia=cod_cia
+                original_cod_cia=cod_cia,
+                descripcion_juridica=form.descripcion_juridica.data,
+                tipo_actividad_ssn=form.tipo_actividad_ssn.data
             )
             
             flash(f'Compañía {new_cod_cia} actualizada exitosamente', 'success')
@@ -203,6 +261,8 @@ def edit_company(cod_cia):
         form.cod_cia.data = company['cod_cia']
         form.nombre_corto.data = company['nombre_corto']
         form.tipo_cia.data = company['tipo_cia']
+        form.descripcion_juridica.data = company['descripcion_juridica']
+        form.tipo_actividad_ssn.data = company['tipo_actividad_ssn']
         form.original_cod_cia.data = cod_cia
     
     return render_template('companies/edit.html', form=form, company=company)

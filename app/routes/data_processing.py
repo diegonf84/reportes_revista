@@ -40,6 +40,21 @@ from modules.compare_csv_reports import compare_all_csv_reports, generate_compar
 data_processing_bp = Blueprint('data_processing', __name__)
 
 
+def _extract_failed_excel_reports(output: str) -> list[str]:
+    """Obtiene los nombres de los reportes fallidos desde la salida del generador."""
+    failed_reports = []
+    failure_marker = ' falló:'
+
+    for line in output.splitlines():
+        normalized_line = line.strip()
+        if normalized_line.startswith('❌ ') and failure_marker in normalized_line:
+            report_name = normalized_line.removeprefix('❌ ').split(failure_marker, 1)[0].strip()
+            if report_name:
+                failed_reports.append(report_name)
+
+    return failed_reports
+
+
 class LogCapture:
     """Clase para capturar logs y enviarlos como respuesta JSON."""
     def __init__(self):
@@ -291,21 +306,33 @@ def api_upload_mdb():
             upload_dir.mkdir(exist_ok=True)
             
             file_path = upload_dir / filename
-            
-            # Verificar si el archivo ya existe
-            if file_path.exists():
-                return jsonify({
-                    'success': False,
-                    'error': f'El archivo {filename} ya existe. Elimínelo primero si desea reemplazarlo.'
-                }), 400
-            
-            file.save(str(file_path))
+            mdb_path = upload_dir / f'{name_without_ext}.mdb'
+            temporary_path = upload_dir / f'.{filename}.uploading'
+            replaced_existing = file_path.exists()
+
+            # Guardar primero en un archivo temporal para no perder el ZIP
+            # anterior si la nueva carga se interrumpe.
+            try:
+                file.save(str(temporary_path))
+                temporary_path.replace(file_path)
+
+                # El MDB se vuelve a extraer desde el ZIP al validar/cargar.
+                # Eliminar el anterior evita usar accidentalmente datos viejos.
+                if mdb_path.exists():
+                    mdb_path.unlink()
+            except Exception:
+                if temporary_path.exists():
+                    temporary_path.unlink()
+                raise
+
+            action = 'reemplazado' if replaced_existing else 'subido'
             
             return jsonify({
                 'success': True,
-                'message': f'Archivo {filename} subido exitosamente',
+                'message': f'Archivo {filename} {action} exitosamente',
                 'filename': filename,
-                'path': str(file_path)
+                'path': str(file_path),
+                'replaced': replaced_existing
             })
             
         else:
@@ -676,11 +703,24 @@ def api_generate_all_reports():
             )
             
             if result_excel.returncode != 0:
-                logs.append(f"❌ Error en generación de Excel: {result_excel.stderr}")
+                failed_reports = _extract_failed_excel_reports(result_excel.stdout)
+
+                if failed_reports:
+                    missing_summary = (
+                        f"No se generaron {len(failed_reports)} archivos Excel: "
+                        f"{', '.join(failed_reports)}."
+                    )
+                    logs.append(f"❌ {missing_summary}")
+                    logs.extend(f"❌ No generado: {report}" for report in failed_reports)
+                else:
+                    missing_summary = 'Algunos archivos Excel no se generaron.'
+                    logs.append(f"❌ {missing_summary}")
+
                 return jsonify({
                     'success': False,
-                    'error': f'Error en generación de archivos Excel: {result_excel.stderr}',
-                    'logs': logs
+                    'error': missing_summary,
+                    'logs': logs,
+                    'failed_excel_reports': failed_reports
                 }), 500
             
             logs.append("✅ Archivos Excel generados exitosamente")

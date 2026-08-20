@@ -726,8 +726,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Upload Form
     document.getElementById('upload-form').addEventListener('submit', function(e) {
         e.preventDefault();
-        
-        const formData = new FormData(this);
+
+        const uploadForm = e.currentTarget;
+        const formData = new FormData(uploadForm);
         const fileInput = document.getElementById('mdb_file');
         
         if (!fileInput.files.length) {
@@ -741,24 +742,36 @@ document.addEventListener('DOMContentLoaded', function() {
             method: 'POST',
             body: formData
         })
-        .then(response => response.json())
+        .then(async response => {
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || `Error HTTP ${response.status}`);
+            }
+            return data;
+        })
         .then(data => {
             hideProgress();
             if (data.success) {
                 showAlert('success', data.message);
-                // Reset form
-                this.reset();
-                // Clear any file status displays
-                document.getElementById('file-status-current').innerHTML = '';
-                document.getElementById('file-status-previous').innerHTML = '';
-                document.getElementById('file-summary').classList.add('d-none');
+                uploadForm.reset();
+
+                // Estos elementos pertenecen al bloque de verificación y
+                // pueden no estar presentes en futuras variantes de la vista.
+                const currentStatus = document.getElementById('file-status-current');
+                const previousStatus = document.getElementById('file-status-previous');
+                const fileSummary = document.getElementById('file-summary');
+
+                if (currentStatus) currentStatus.innerHTML = '';
+                if (previousStatus) previousStatus.innerHTML = '';
+                if (fileSummary) fileSummary.classList.add('d-none');
             } else {
-                showAlert('danger', data.error);
+                showAlert('danger', data.error || 'No se pudo subir el archivo');
             }
         })
         .catch(error => {
             hideProgress();
-            showAlert('danger', 'Error de conexión al subir archivo');
+            console.error('Error al subir archivo:', error);
+            showAlert('danger', `Error al subir archivo: ${error.message}`);
         });
     });
 });

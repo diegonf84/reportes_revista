@@ -45,6 +45,20 @@ class CompanyForm(FlaskForm):
         validators=[DataRequired(message='Debe seleccionar un tipo de compañía')],
         render_kw={'class': 'form-select'}
     )
+
+    descripcion_juridica = SelectField(
+        'Descripción Jurídica',
+        choices=[],
+        validators=[DataRequired(message='Debe seleccionar una descripción jurídica')],
+        render_kw={'class': 'form-select'}
+    )
+
+    tipo_actividad_ssn = SelectField(
+        'Tipo de Actividad SSN',
+        choices=[],
+        validators=[DataRequired(message='Debe seleccionar un tipo de actividad SSN')],
+        render_kw={'class': 'form-select'}
+    )
     
     # Hidden field for edit mode
     original_cod_cia = HiddenField()

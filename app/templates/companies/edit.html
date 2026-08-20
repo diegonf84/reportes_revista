@@ -90,6 +90,32 @@
                         </div>
                         {% endif %}
                     </div>
+
+                    <!-- Descripción Jurídica -->
+                    <div class="mb-3">
+                        {{ form.descripcion_juridica.label(class="form-label") }}
+                        {{ form.descripcion_juridica(class="form-select" + (" is-invalid" if form.descripcion_juridica.errors else "")) }}
+                        {% if form.descripcion_juridica.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.descripcion_juridica.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Tipo de Actividad SSN -->
+                    <div class="mb-3">
+                        {{ form.tipo_actividad_ssn.label(class="form-label") }}
+                        {{ form.tipo_actividad_ssn(class="form-select" + (" is-invalid" if form.tipo_actividad_ssn.errors else "")) }}
+                        {% if form.tipo_actividad_ssn.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.tipo_actividad_ssn.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
                     
                     <!-- Información sobre tipos -->
                     <div class="alert alert-light alert-permanent">
