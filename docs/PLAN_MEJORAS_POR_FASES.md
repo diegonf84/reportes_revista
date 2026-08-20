@@ -7,7 +7,7 @@ Checklist vivo para fortalecer la operación, los controles y la mantenibilidad 
 | Fase | Tema | Complejidad estimada | Estado |
 |---|---|---:|---|
 | 1 | Generación confiable de reportes | Alta | Completada |
-| 2 | Recarga segura de períodos | Alta | Pendiente |
+| 2 | Recarga segura de períodos | Alta | Completada |
 | 3 | Pipeline completo por período | Alta | Pendiente |
 | 4 | Mensajes, progreso y experiencia operativa | Media | Pendiente |
 | 5 | Controles de datos maestros y conciliación | Alta | Pendiente |
@@ -16,7 +16,7 @@ Checklist vivo para fortalecer la operación, los controles y la mantenibilidad 
 | 8 | Seguridad y preparación para despliegue | Media | Pendiente |
 
 **Estado del plan:** en ejecución  
-**Fase activa:** Ninguna; próxima sugerida: Fase 2 — Recarga segura de períodos  
+**Fase activa:** Ninguna; próxima sugerida: Fase 3 — Pipeline completo por período
 **Última actualización:** 2026-08-19
 
 ## Criterios acordados
@@ -89,18 +89,18 @@ Una generación sólo se considera exitosa si están presentes y validados todos
 
 ### Checklist
 
-- [ ] Mantener el ZIP nuevo como temporal hasta que el usuario confirme la recarga.
-- [ ] Conservar el ZIP vigente si la comparación o validación del nuevo archivo falla.
-- [ ] Eliminar o aislar el MDB extraído anterior antes de validar el nuevo ZIP.
-- [ ] Validar que el ZIP contenga el MDB esperado y no archivos inesperados.
-- [ ] Validar tamaño, estructura y extracción segura del ZIP.
-- [ ] Comprobar el resultado de `mdb-export` antes de leer el CSV producido.
-- [ ] Evitar el esquema actual de borrar primero y cargar después sin recuperación.
-- [ ] Definir una estrategia de rollback o restauración si la nueva carga falla.
-- [ ] Realizar un backup consistente antes de una recarga destructiva.
-- [ ] Verificar después de la carga cantidad de filas, compañías y período insertado.
-- [ ] Informar claramente si la recarga fue confirmada, cancelada o revertida.
-- [ ] Regenerar o invalidar explícitamente las tablas derivadas después de recargar un período.
+- [x] Mantener el ZIP nuevo como temporal hasta que el usuario confirme la recarga.
+- [x] Conservar el ZIP vigente si la comparación o validación del nuevo archivo falla.
+- [x] Eliminar o aislar el MDB extraído anterior antes de validar el nuevo ZIP.
+- [x] Validar que el ZIP contenga el MDB esperado y no archivos inesperados.
+- [x] Validar tamaño, estructura y extracción segura del ZIP.
+- [x] Comprobar el resultado de `mdb-export` antes de leer el CSV producido.
+- [x] Evitar el esquema actual de borrar primero y cargar después sin recuperación.
+- [x] Definir una estrategia de rollback o restauración si la nueva carga falla.
+- [x] Realizar un backup consistente antes de una recarga destructiva.
+- [x] Verificar después de la carga cantidad de filas, compañías y período insertado.
+- [x] Informar claramente si la recarga fue confirmada, cancelada o revertida.
+- [x] Regenerar o invalidar explícitamente las tablas derivadas después de recargar un período.
 
 ### Criterio de cierre
 
@@ -108,10 +108,18 @@ Una recarga fallida deja intactos el ZIP vigente y los datos originales del per�
 
 ### Evidencia de cierre
 
-- Fecha:
+- Fecha: 2026-08-19.
 - Pruebas ejecutadas:
+  - Suite completa: 19 pruebas aprobadas con `python -m unittest discover -s tests -v`.
+  - Casos específicos de recarga: ZIP inválido, fallo de `mdb-export`, cancelación, confirmación y fallo de commit con restauración de base, ZIP y MDB.
+  - Prueba real aislada con `2026-2.zip`: 150.200 filas, 185 compañías y período único `202602` cargados y conciliados en una base temporal.
+  - En la prueba real se conservó otro período, se reemplazó el ZIP temporal por el oficial, se eliminó el MDB anterior y se invalidaron las tablas derivadas afectadas.
 - Archivos afectados:
-- Observaciones:
+  - `modules/period_reload.py` — staging, validación ZIP/MDB, transacción, conciliación, invalidación y rollback.
+  - `app/routes/data_processing.py` — preparación, confirmación y cancelación de recargas.
+  - `app/templates/data_processing/verification.html` — token de recarga y cancelación real del staging.
+  - `tests/test_period_reload.py` — pruebas aisladas y de endpoints para la Fase 2.
+- Observaciones: la base y los archivos operativos no se modificaron durante las pruebas. El respaldo de filas vive dentro de la misma transacción SQLite y los archivos vigentes se conservan hasta confirmar el commit.
 
 ---
 

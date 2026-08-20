@@ -23,7 +23,7 @@ sys.path.insert(0, str(project_root))
 from modules.check_cantidad_cias import main as check_companies_main, get_companies_from_file, get_companies_from_db
 from modules.check_ultimos_periodos import print_periods_info, list_available_periods as list_periods
 from modules.carga_base_principal import main as load_data_main
-from utils.db_functions import delete_period, list_ultimos_periodos
+from utils.db_functions import list_ultimos_periodos
 from modules.crea_tabla_ultimos_periodos import create_recent_periods_table
 from modules.crea_tabla_subramos import main as create_base_subramos_main
 from modules.crea_tabla_ramos import main as create_base_ramos_main
@@ -42,6 +42,13 @@ from modules.report_generation import (
     validate_csv_outputs,
     validate_excel_outputs,
     validate_report_preflight,
+)
+from modules.period_reload import (
+    PeriodReloadError,
+    cancel_staged_reload,
+    confirm_staged_reload,
+    get_period_database_stats,
+    stage_reload_candidate,
 )
 
 data_processing_bp = Blueprint('data_processing', __name__)
@@ -1069,7 +1076,7 @@ def delete_concepto(concepto_id):
 
 @data_processing_bp.route('/api/upload-and-compare-period', methods=['POST'])
 def api_upload_and_compare_period():
-    """Sube un archivo ZIP para un período existente y compara compañías."""
+    """Valida un ZIP en staging para un período existente y compara compañías."""
     try:
         form = ReloadPeriodForm()
 
@@ -1103,85 +1110,149 @@ def api_upload_and_compare_period():
         from dotenv import load_dotenv as _load_dotenv
         _load_dotenv()
         database_path = os.getenv('DATABASE')
-        periods_in_db = list_ultimos_periodos(database_path)
-
-        if periodo not in periods_in_db:
+        if not database_path:
+            raise PeriodReloadError('La base de datos no está configurada.')
+        database_stats = get_period_database_stats(database_path, periodo)
+        if database_stats['row_count'] == 0:
             return jsonify({
                 'success': False,
                 'error': f'El período {periodo} no existe en la base de datos. Use la carga normal para períodos nuevos.'
             }), 400
 
-        # Guardar archivo (permite sobreescribir)
+        # El archivo vigente no se toca hasta que el usuario confirme.
         upload_dir = get_mdb_files_directory()
-        upload_dir.mkdir(exist_ok=True)
-        file_path = upload_dir / filename
-        file.save(str(file_path))
+        candidate = stage_reload_candidate(file, periodo, filename, upload_dir)
 
         # Comparar compañías
-        companies_file, names_file = get_companies_from_file(periodo)
         companies_db, names_db = get_companies_from_db(periodo)
 
-        new_companies = sorted(companies_file - companies_db)
-        missing_companies = sorted(companies_db - companies_file)
+        new_companies = sorted(candidate.company_codes - companies_db)
+        missing_companies = sorted(companies_db - candidate.company_codes)
 
-        new_list = [{'cod': c, 'nombre': names_file.get(c, f'Sin nombre ({c})')} for c in new_companies]
+        new_list = [
+            {'cod': c, 'nombre': candidate.company_names.get(c, f'Sin nombre ({c})')}
+            for c in new_companies
+        ]
         missing_list = [{'cod': c, 'nombre': names_db.get(c, f'Sin nombre ({c})')} for c in missing_companies]
 
         return jsonify({
             'success': True,
+            'status': 'pending_confirmation',
             'periodo': periodo,
             'filename': filename,
+            'reload_token': candidate.token,
             'companies_in_db': len(companies_db),
-            'companies_in_file': len(companies_file),
+            'companies_in_file': len(candidate.company_codes),
+            'rows_in_file': candidate.row_count,
             'new_companies': new_list,
             'missing_companies': missing_list,
-            'message': f'Comparación lista para período {periodo}: {len(companies_db)} compañías en BD, {len(companies_file)} en archivo nuevo'
+            'message': f'Comparación lista para período {periodo}: {len(companies_db)} compañías en BD, {len(candidate.company_codes)} en archivo nuevo'
         })
 
+    except PeriodReloadError as e:
+        return jsonify({'success': False, 'status': 'rejected', 'error': str(e)}), 400
     except Exception as e:
+        logging.exception('Error preparando la recarga del período')
         return jsonify({'success': False, 'error': f'Error al comparar: {str(e)}'}), 500
 
 
 @data_processing_bp.route('/api/confirm-reload-period', methods=['POST'])
 def api_confirm_reload_period():
-    """Elimina el período de datos_balance y lo recarga desde el archivo ZIP."""
+    """Confirma la sustitución transaccional del período y de su ZIP fuente."""
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True) or {}
         periodo = data.get('periodo')
+        reload_token = data.get('reload_token')
 
-        if not periodo:
-            return jsonify({'success': False, 'error': 'El período es requerido'}), 400
+        if not periodo or not reload_token:
+            return jsonify({
+                'success': False,
+                'status': 'failed',
+                'error': 'El período y la recarga pendiente son requeridos.',
+            }), 400
 
         from dotenv import load_dotenv as _load_dotenv
         _load_dotenv()
         database_path = os.getenv('DATABASE')
+        if not database_path:
+            return jsonify({
+                'success': False,
+                'status': 'failed',
+                'error': 'La base de datos no está configurada.',
+            }), 500
 
         log_capture = LogCapture()
         log_capture.start_capture()
 
         try:
-            deleted_rows = delete_period(int(periodo), database_path)
-            logging.info(f'Período {periodo} eliminado: {deleted_rows:,} filas borradas de datos_balance')
-
-            load_data_main(int(periodo), force=True)
-
+            result = confirm_staged_reload(
+                reload_token,
+                int(periodo),
+                get_mdb_files_directory(),
+                database_path,
+            )
+            logging.info(
+                'Período %s reemplazado: %s filas anteriores, %s filas nuevas',
+                periodo,
+                result['old_rows'],
+                result['new_rows'],
+            )
             logs = log_capture.get_logs()
             log_capture.stop_capture()
 
             return jsonify({
                 'success': True,
+                'status': 'confirmed',
                 'logs': logs,
-                'deleted_rows': deleted_rows,
-                'message': f'Período {periodo} recargado exitosamente ({deleted_rows:,} filas eliminadas e insertados nuevos datos)'
+                **result,
+                'message': (
+                    f'Período {periodo} recargado correctamente: '
+                    f'{result["new_rows"]:,} filas y {result["new_companies"]:,} compañías. '
+                    'Las tablas derivadas afectadas quedaron invalidadas y deben regenerarse.'
+                ),
             })
 
         except Exception as e:
+            logs = log_capture.get_logs()
             log_capture.stop_capture()
+            logging.exception('Recarga revertida para el período %s', periodo)
             return jsonify({
                 'success': False,
-                'error': str(e),
-                'logs': log_capture.get_logs()
+                'status': 'reverted',
+                'error': 'La recarga falló y se restauraron los datos y el archivo anteriores.',
+                'logs': logs,
             }), 500
 
     except Exception as e:
         return jsonify({'success': False, 'error': f'Error en la solicitud: {str(e)}'}), 400
+
+
+@data_processing_bp.route('/api/cancel-reload-period', methods=['POST'])
+def api_cancel_reload_period():
+    """Descarta el ZIP pendiente sin modificar el archivo ni los datos vigentes."""
+    data = request.get_json(silent=True) or {}
+    periodo = data.get('periodo')
+    reload_token = data.get('reload_token')
+    if not periodo or not reload_token:
+        return jsonify({
+            'success': False,
+            'status': 'failed',
+            'error': 'El período y la recarga pendiente son requeridos.',
+        }), 400
+    try:
+        cancel_staged_reload(
+            reload_token,
+            int(periodo),
+            get_mdb_files_directory(),
+        )
+        return jsonify({
+            'success': True,
+            'status': 'cancelled',
+            'message': f'Recarga del período {periodo} cancelada. No se modificaron datos ni archivos.',
+        })
+    except PeriodReloadError as error:
+        return jsonify({
+            'success': False,
+            'status': 'failed',
+            'error': str(error),
+        }), 400

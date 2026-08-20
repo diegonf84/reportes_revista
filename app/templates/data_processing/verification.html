@@ -587,6 +587,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Reload Period Form
     let reloadPeriodo = null;
+    let reloadToken = null;
 
     document.getElementById('reload-form').addEventListener('submit', function(e) {
         e.preventDefault();
@@ -618,6 +619,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             reloadPeriodo = data.periodo;
+            reloadToken = data.reload_token;
 
             let html = `<div class="table-responsive mb-3">
                 <table class="table table-sm table-bordered">
@@ -665,15 +667,31 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     document.getElementById('btn-cancel-reload').addEventListener('click', function() {
-        reloadPeriodo = null;
-        document.getElementById('reload-comparison').classList.add('d-none');
-        document.getElementById('reload-logs-container').classList.add('d-none');
-        document.getElementById('reload-form').reset();
-        showAlert('info', 'Recarga cancelada.');
+        if (!reloadPeriodo || !reloadToken) return;
+
+        fetch('/data-processing/api/cancel-reload-period', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({periodo: reloadPeriodo, reload_token: reloadToken})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                showAlert('danger', data.error);
+                return;
+            }
+            reloadPeriodo = null;
+            reloadToken = null;
+            document.getElementById('reload-comparison').classList.add('d-none');
+            document.getElementById('reload-logs-container').classList.add('d-none');
+            document.getElementById('reload-form').reset();
+            showAlert('info', data.message);
+        })
+        .catch(error => showAlert('danger', 'Error de conexión: ' + error.message));
     });
 
     document.getElementById('btn-confirm-reload').addEventListener('click', function() {
-        if (!reloadPeriodo) return;
+        if (!reloadPeriodo || !reloadToken) return;
 
         this.disabled = true;
         document.getElementById('btn-cancel-reload').disabled = true;
@@ -684,7 +702,7 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch('/data-processing/api/confirm-reload-period', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({periodo: reloadPeriodo})
+            body: JSON.stringify({periodo: reloadPeriodo, reload_token: reloadToken})
         })
         .then(response => response.json())
         .then(data => {
@@ -705,6 +723,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 logsHtml = `<div class="alert alert-success">${escapeHtml(data.message)}</div>` + logsHtml;
                 showAlert('success', data.message);
                 reloadPeriodo = null;
+                reloadToken = null;
                 document.getElementById('reload-comparison').classList.add('d-none');
                 document.getElementById('reload-form').reset();
             } else {
