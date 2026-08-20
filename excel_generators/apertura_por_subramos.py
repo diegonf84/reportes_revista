@@ -3,6 +3,10 @@ import openpyxl
 from openpyxl.styles import Font, Border, Side, Alignment
 from openpyxl.utils import get_column_letter
 import os
+try:
+    from .output_paths import resolve_report_directories
+except ImportError:
+    from output_paths import resolve_report_directories
 import logging
 
 # Diccionario de mapeo de subramos (fácil de modificar en el futuro)
@@ -209,7 +213,7 @@ def crear_hoja_ramo(ws, ramo_data, ramo_nombre):
     for col_idx, width in enumerate(column_widths, 1):
         ws.column_dimensions[get_column_letter(col_idx)].width = width
 
-def generate_apertura_subramo_excel(period: str) -> str:
+def generate_apertura_subramo_excel(period: str, csv_dir: str = None, output_dir: str = None) -> str:
     """
     Función de conveniencia para generar el Excel de apertura por subramo.
     
@@ -220,13 +224,8 @@ def generate_apertura_subramo_excel(period: str) -> str:
         Ruta del archivo Excel generado
     """
     # Obtener directorio base del proyecto
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    
-    csv_dir = os.path.join(base_dir, "ending_files", period)
-    output_dir = os.path.join(base_dir, "excel_final_files")
-    period_dir = os.path.join(output_dir, period)
-    os.makedirs(period_dir, exist_ok=True)
-    
+    csv_dir, period_dir = resolve_report_directories(period, csv_dir, output_dir)
+
     csv_path = os.path.join(csv_dir, f"{period}_apertura_por_subramo.csv")
     output_path = os.path.join(period_dir, f"{period}_apertura_por_subramo.xlsx")
     

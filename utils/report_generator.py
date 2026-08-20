@@ -20,7 +20,7 @@ def export_query_to_csv(
     separator: str = ';',
     decimal: str = ',',
     database_path: Optional[str] = None
-) -> None:
+) -> int:
     """
     Ejecuta una consulta SQL y exporta los resultados a un archivo CSV.
     
@@ -36,26 +36,34 @@ def export_query_to_csv(
         load_dotenv()
         database_path = os.getenv('DATABASE')
     
+    if not database_path:
+        raise ValueError("DATABASE environment variable not set")
+
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    temporary_output = output.with_suffix(output.suffix + ".tmp")
+
     try:
         with sqlite3.connect(database_path) as conn:
             # Ejecutar query y obtener DataFrame
             df = pd.read_sql_query(query, conn)
-            
-            # Convertir columnas a entero si se especifica
-            if int_columns:
-                for col in int_columns:
-                    if col in df.columns:
-                        df[col] = df[col].astype(int)
-            
-            # Exportar a CSV
-            df.to_csv(output_path, sep=separator, decimal=decimal, index=False)
-            
-            logging.info(f"Archivo CSV creado con {len(df):,} registros en {output_path}")
-            
-    except sqlite3.Error as e:
-        logging.error(f"Error en base de datos: {e}")
-    except Exception as e:
-        logging.error(f"Error inesperado: {e}")
+
+        # Convertir columnas a entero si se especifica
+        if int_columns:
+            for col in int_columns:
+                if col in df.columns:
+                    df[col] = df[col].astype(int)
+
+        # Escribir primero en un archivo temporal para no publicar CSV parciales.
+        df.to_csv(temporary_output, sep=separator, decimal=decimal, index=False)
+        temporary_output.replace(output)
+
+        logging.info(f"Archivo CSV creado con {len(df):,} registros en {output}")
+        return len(df)
+    except Exception:
+        if temporary_output.exists():
+            temporary_output.unlink()
+        raise
 
 def create_table_from_query(
     table_name: str, 

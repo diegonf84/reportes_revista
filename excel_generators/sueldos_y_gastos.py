@@ -3,6 +3,10 @@ import openpyxl
 from openpyxl.styles import Font, Border, Side, Alignment
 from openpyxl.utils import get_column_letter
 import os
+try:
+    from .output_paths import resolve_report_directories
+except ImportError:
+    from output_paths import resolve_report_directories
 import logging
 
 def create_excel_sueldos_gastos_completo(csv_path: str, output_path: str, period: str) -> None:
@@ -241,7 +245,7 @@ def calcular_totales_generales(data: pd.DataFrame) -> dict:
     """Calcula totales generales para toda la base"""
     return calcular_totales_tipo(data)
 
-def generate_sueldos_gastos_excel(period: str) -> str:
+def generate_sueldos_gastos_excel(period: str, csv_dir: str = None, output_dir: str = None) -> str:
     """
     Función de conveniencia para generar el Excel de sueldos y gastos.
     
@@ -252,13 +256,8 @@ def generate_sueldos_gastos_excel(period: str) -> str:
         Ruta del archivo Excel generado
     """
     # Obtener directorio base del proyecto
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    
-    csv_dir = os.path.join(base_dir, "ending_files", period)
-    output_dir = os.path.join(base_dir, "excel_final_files")
-    period_dir = os.path.join(output_dir, period)
-    os.makedirs(period_dir, exist_ok=True)
-    
+    csv_dir, period_dir = resolve_report_directories(period, csv_dir, output_dir)
+
     csv_path = os.path.join(csv_dir, f"{period}_sueldos_y_gastos.csv")
     output_path = os.path.join(period_dir, f"{period}_sueldos_y_gastos.xlsx")
     

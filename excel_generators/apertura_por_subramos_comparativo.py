@@ -3,6 +3,10 @@ import openpyxl
 from openpyxl.styles import Font, Border, Side, Alignment
 from openpyxl.utils import get_column_letter
 import os
+try:
+    from .output_paths import resolve_report_directories
+except ImportError:
+    from output_paths import resolve_report_directories
 import logging
 
 SUBRAMOS_INCLUIDOS = {
@@ -255,12 +259,8 @@ def calcular_totales_subramo(data: pd.DataFrame) -> dict:
     return {'primas': primas, 'variacion': variacion, 'primas_anterior': primas_anterior}
 
 
-def generate_apertura_subramo_comparativo_excel(period: str) -> str:
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-    csv_dir = os.path.join(base_dir, "ending_files", period)
-    period_dir = os.path.join(base_dir, "excel_final_files", period)
-    os.makedirs(period_dir, exist_ok=True)
+def generate_apertura_subramo_comparativo_excel(period: str, csv_dir: str = None, output_dir: str = None) -> str:
+    csv_dir, period_dir = resolve_report_directories(period, csv_dir, output_dir)
 
     csv_path = os.path.join(csv_dir, f"{period}_apertura_por_subramo_comparativo.csv")
     output_path = os.path.join(period_dir, f"{period}_apertura_por_subramo_comparativo.xlsx")

@@ -2,6 +2,10 @@ import pandas as pd
 import openpyxl
 from openpyxl.styles import Font, Border, Side, Alignment
 import os
+try:
+    from .output_paths import resolve_report_directories
+except ImportError:
+    from output_paths import resolve_report_directories
 import logging
 
 _QUARTER_MONTH_NAME = {1: 'MARZO', 2: 'JUNIO', 3: 'SEPTIEMBRE', 4: 'DICIEMBRE'}
@@ -247,7 +251,7 @@ def calcular_totales(data: pd.DataFrame) -> dict:
         'primas_devengadas': data['primas_devengadas'].sum()
     }
 
-def generate_ganaron_perdieron_excel(period: str) -> str:
+def generate_ganaron_perdieron_excel(period: str, csv_dir: str = None, output_dir: str = None) -> str:
     """
     Función de conveniencia para generar el Excel completo de ganaron-perdieron.
     
@@ -258,13 +262,8 @@ def generate_ganaron_perdieron_excel(period: str) -> str:
         Ruta del archivo Excel generado
     """
     # Obtener directorio base del proyecto
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    
-    csv_dir = os.path.join(base_dir, "ending_files", period)
-    output_dir = os.path.join(base_dir, "excel_final_files")
-    period_dir = os.path.join(output_dir, period)
-    os.makedirs(period_dir, exist_ok=True)
-    
+    csv_dir, period_dir = resolve_report_directories(period, csv_dir, output_dir)
+
     csv_path = os.path.join(csv_dir, f"{period}_ganaron_perdieron.csv")
     output_path = os.path.join(period_dir, f"{period}_ganaron_perdieron.xlsx")
     

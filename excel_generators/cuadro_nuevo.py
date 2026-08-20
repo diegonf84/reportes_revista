@@ -2,6 +2,10 @@ import pandas as pd
 import openpyxl
 from openpyxl.styles import Font, Border, Side, Alignment
 import os
+try:
+    from .output_paths import resolve_report_directories
+except ImportError:
+    from output_paths import resolve_report_directories
 import logging
 import argparse
 
@@ -131,7 +135,7 @@ def create_excel_cuadro_nuevo(csv_path: str, output_path: str, period: str) -> N
     wb.save(output_path)
     logging.info(f"Excel generado en: {output_path}")
 
-def generate_cuadro_nuevo_excel(period: str, csv_dir: str = None) -> str:
+def generate_cuadro_nuevo_excel(period: str, csv_dir: str = None, output_dir: str = None) -> str:
     """
     Función de conveniencia para generar el Excel del cuadro nuevo.
     
@@ -143,15 +147,8 @@ def generate_cuadro_nuevo_excel(period: str, csv_dir: str = None) -> str:
         Ruta del archivo Excel generado
     """
     # Obtener directorio base del proyecto
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    
-    if csv_dir is None:
-        csv_dir = os.path.join(base_dir, "ending_files", period)
-    
-    output_dir = os.path.join(base_dir, "excel_final_files")
-    period_dir = os.path.join(output_dir, period)
-    os.makedirs(period_dir, exist_ok=True)
-    
+    csv_dir, period_dir = resolve_report_directories(period, csv_dir, output_dir)
+
     csv_path = os.path.join(csv_dir, f"{period}_cuadro_nuevo.csv")
     output_path = os.path.join(period_dir, f"{period}_cuadro_nuevo.xlsx")
     

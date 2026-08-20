@@ -3,6 +3,8 @@ import logging
 import sqlite3
 import json
 import subprocess
+import sys
+import tempfile
 from io import StringIO
 from pathlib import Path
 from werkzeug.utils import secure_filename
@@ -13,10 +15,6 @@ from app.forms.processing_forms import (
     CheckPeriodsForm, UploadMDBForm, ReportGenerationForm, ConceptoForm,
     ReloadPeriodForm
 )
-
-# Importar módulos existentes
-import sys
-from pathlib import Path
 
 # Add project root to path for module imports
 project_root = Path(__file__).parent.parent.parent
@@ -36,11 +34,20 @@ from modules.crea_tabla_cias_corregida import create_table_from_query as create_
 from modules.file_utils import check_mdb_file_exists, list_available_mdb_files, get_file_status
 from modules.common import get_mdb_files_directory
 from modules.compare_csv_reports import compare_all_csv_reports, generate_comparison_report
+from modules.report_generation import (
+    CSV_CONTRACTS,
+    EXCEL_REPORT_NAMES,
+    ReportValidationError,
+    publish_staged_directories,
+    validate_csv_outputs,
+    validate_excel_outputs,
+    validate_report_preflight,
+)
 
 data_processing_bp = Blueprint('data_processing', __name__)
 
 
-def _extract_failed_excel_reports(output: str) -> list[str]:
+def _extract_failed_reports(output: str) -> list[str]:
     """Obtiene los nombres de los reportes fallidos desde la salida del generador."""
     failed_reports = []
     failure_marker = ' falló:'
@@ -594,162 +601,190 @@ def report_generation():
 
 @data_processing_bp.route('/api/generate-all-reports', methods=['POST'])
 def api_generate_all_reports():
-    """API endpoint para generar todos los reportes CSV y Excel."""
+    """Genera, valida y publica la salida CSV y Excel oficial de un período."""
+    data = request.get_json(silent=True) or {}
+    periodo = data.get('periodo')
+
+    if not periodo:
+        return jsonify({'success': False, 'error': 'El período es requerido'}), 400
+
     try:
-        data = request.get_json()
-        periodo = data.get('periodo')
-        
-        if not periodo:
-            return jsonify({
-                'success': False,
-                'error': 'El período es requerido'
-            }), 400
-        
-        # Validar formato del período
-        periodo_str = str(periodo)
-        if len(periodo_str) != 6:
-            return jsonify({
-                'success': False,
-                'error': 'El período debe tener formato YYYYPP (6 dígitos)'
-            }), 400
+        periodo_int = int(periodo)
+        periodo_str = str(periodo_int)
+        database_path = os.getenv('DATABASE')
+        if not database_path:
+            raise ReportValidationError('La base de datos no está configurada.')
+        validate_report_preflight(database_path, periodo_int)
+    except (TypeError, ValueError, ReportValidationError) as error:
+        return jsonify({
+            'success': False,
+            'status': 'failed',
+            'error': str(error),
+        }), 400
 
-        quarter_val = int(periodo_str[4:])
-        if quarter_val < 1 or quarter_val > 4:
-            return jsonify({
-                'success': False,
-                'error': 'El trimestre debe estar entre 01 y 04'
-            }), 400
+    logs = []
+    csv_script_path = project_root / 'ending_files' / 'generate_all_reports.py'
+    excel_script_path = project_root / 'excel_generators' / 'generate_all_excel.py'
+    official_csv_dir = project_root / 'ending_files' / periodo_str
+    official_excel_dir = project_root / 'excel_final_files' / periodo_str
 
-        # Validar que las tablas corregidas corresponden al período solicitado
-        from dotenv import load_dotenv as _load_dotenv_rep
-        _load_dotenv_rep()
-        _database_path = os.getenv('DATABASE')
-        _corregida_tables = [
-            'base_subramos_corregida_actual',
-            'base_ramos_corregida_actual',
-            'base_cias_corregida_actual',
-        ]
-        try:
-            with sqlite3.connect(_database_path) as _conn_check:
-                for _table in _corregida_tables:
-                    _exists = _conn_check.execute(
-                        "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (_table,)
-                    ).fetchone()
-                    if not _exists:
-                        return jsonify({
-                            'success': False,
-                            'error': (
-                                f'La tabla {_table} no existe. '
-                                'Ejecute el paso "Subramos, Ramos y Compañías Corregidas" antes de generar reportes.'
-                            )
-                        }), 400
-                    _cols = [row[1] for row in _conn_check.execute(f"PRAGMA table_info({_table})").fetchall()]
-                    if 'periodo' in _cols:
-                        _table_periodo = _conn_check.execute(
-                            f"SELECT MAX(periodo) FROM {_table}"
-                        ).fetchone()[0]
-                        if str(_table_periodo) != periodo_str:
-                            return jsonify({
-                                'success': False,
-                                'error': (
-                                    f'La tabla {_table} fue generada para el período {_table_periodo}, '
-                                    f'no para {periodo_str}. '
-                                    'Regenere las tablas corregidas para el período correcto antes de generar reportes.'
-                                )
-                            }), 400
-        except sqlite3.Error as _e:
-            return jsonify({
-                'success': False,
-                'error': f'Error verificando tablas corregidas: {_e}'
-            }), 500
+    try:
+        with tempfile.TemporaryDirectory(
+            prefix='.report-generation-',
+            dir=project_root,
+        ) as temporary_root:
+            staging_root = Path(temporary_root)
+            staging_csv_root = staging_root / 'ending_files'
+            staging_csv_dir = staging_csv_root / periodo_str
+            staging_excel_dir = staging_root / 'excel_final_files' / periodo_str
 
-        # Obtener directorio base del proyecto
-        logs = []
-        
-        try:
-            # Paso 1: Generar archivos CSV
-            logs.append("🚀 Iniciando generación de archivos CSV...")
-            
-            csv_script_path = os.path.join(project_root, "ending_files", "generate_all_reports.py")
+            logs.append('Iniciando generación de archivos CSV...')
             result_csv = subprocess.run(
-                ['python', csv_script_path, periodo_str],
+                [
+                    sys.executable,
+                    str(csv_script_path),
+                    periodo_str,
+                    '--output_dir',
+                    str(staging_csv_root),
+                ],
                 capture_output=True,
                 text=True,
                 cwd=str(project_root),
-                timeout=300  # 5 minutes timeout
+                timeout=300,
             )
-            
+
             if result_csv.returncode != 0:
-                logs.append(f"❌ Error en generación de CSV: {result_csv.stderr}")
+                failed_reports = _extract_failed_reports(result_csv.stdout)
+                logging.error(
+                    'Falló la generación CSV para %s. stdout=%s stderr=%s',
+                    periodo_str,
+                    result_csv.stdout,
+                    result_csv.stderr,
+                )
+                if failed_reports:
+                    message = (
+                        f"No se generaron {len(failed_reports)} archivos CSV: "
+                        f"{', '.join(failed_reports)}."
+                    )
+                    status = (
+                        'partial'
+                        if len(failed_reports) < len(CSV_CONTRACTS)
+                        else 'failed'
+                    )
+                else:
+                    message = 'Los archivos CSV no se generaron.'
+                    status = 'failed'
                 return jsonify({
                     'success': False,
-                    'error': f'Error en generación de archivos CSV: {result_csv.stderr}',
-                    'logs': logs
+                    'status': status,
+                    'error': message,
+                    'logs': logs,
+                    'failed_csv_reports': failed_reports,
                 }), 500
-            
-            logs.append("✅ Archivos CSV generados exitosamente")
-            logs.extend(result_csv.stdout.split('\n'))
-            
-            # Paso 2: Generar archivos Excel
-            logs.append("🚀 Iniciando generación de archivos Excel...")
-            
-            excel_script_path = os.path.join(project_root, "excel_generators", "generate_all_excel.py")
+
+            try:
+                csv_files = validate_csv_outputs(staging_csv_dir, periodo_str)
+            except ReportValidationError as error:
+                logging.error('Falló la validación CSV para %s: %s', periodo_str, error)
+                return jsonify({
+                    'success': False,
+                    'status': 'failed',
+                    'error': 'Los archivos CSV no superaron los controles finales.',
+                    'logs': logs,
+                }), 500
+
+            logs.append(f'{len(csv_files)} archivos CSV generados y validados.')
+            logs.append('Iniciando generación de archivos Excel...')
             result_excel = subprocess.run(
-                ['python', excel_script_path, periodo_str],
+                [
+                    sys.executable,
+                    str(excel_script_path),
+                    periodo_str,
+                    '--csv-dir',
+                    str(staging_csv_dir),
+                    '--output-dir',
+                    str(staging_excel_dir),
+                ],
                 capture_output=True,
                 text=True,
                 cwd=str(project_root),
-                timeout=600  # 10 minutes timeout
+                timeout=600,
             )
-            
-            if result_excel.returncode != 0:
-                failed_reports = _extract_failed_excel_reports(result_excel.stdout)
 
+            if result_excel.returncode != 0:
+                failed_reports = _extract_failed_reports(result_excel.stdout)
+                logging.error(
+                    'Falló la generación Excel para %s. stdout=%s stderr=%s',
+                    periodo_str,
+                    result_excel.stdout,
+                    result_excel.stderr,
+                )
                 if failed_reports:
-                    missing_summary = (
+                    message = (
                         f"No se generaron {len(failed_reports)} archivos Excel: "
                         f"{', '.join(failed_reports)}."
                     )
-                    logs.append(f"❌ {missing_summary}")
-                    logs.extend(f"❌ No generado: {report}" for report in failed_reports)
+                    status = (
+                        'partial'
+                        if len(failed_reports) < len(EXCEL_REPORT_NAMES)
+                        else 'failed'
+                    )
                 else:
-                    missing_summary = 'Algunos archivos Excel no se generaron.'
-                    logs.append(f"❌ {missing_summary}")
-
+                    message = 'Los archivos Excel no se generaron.'
+                    status = 'failed'
                 return jsonify({
                     'success': False,
-                    'error': missing_summary,
+                    'status': status,
+                    'error': message,
                     'logs': logs,
-                    'failed_excel_reports': failed_reports
+                    'failed_excel_reports': failed_reports,
                 }), 500
-            
-            logs.append("✅ Archivos Excel generados exitosamente")
-            logs.extend(result_excel.stdout.split('\n'))
-            
-            # Información de archivos generados
-            csv_dir = os.path.join(project_root, "ending_files", periodo_str)
-            excel_dir = os.path.join(project_root, "excel_final_files", periodo_str)
-            
-            return jsonify({
-                'success': True,
-                'logs': logs,
-                'message': f'Todos los reportes generados exitosamente para período {periodo_str}',
-                'csv_directory': csv_dir,
-                'excel_directory': excel_dir,
-                'periodo': periodo_str
-            })
-            
-        except subprocess.TimeoutExpired:
-            return jsonify({
-                'success': False,
-                'error': 'El proceso excedió el tiempo límite. Verifique los datos y vuelva a intentar.',
-                'logs': logs
-            }), 500
-        
-    except Exception as e:
+
+            try:
+                excel_files = validate_excel_outputs(staging_excel_dir, periodo_str)
+            except ReportValidationError as error:
+                logging.error('Falló la validación Excel para %s: %s', periodo_str, error)
+                return jsonify({
+                    'success': False,
+                    'status': 'failed',
+                    'error': 'Los archivos Excel no superaron los controles finales.',
+                    'logs': logs,
+                }), 500
+
+            logs.append(f'{len(excel_files)} archivos Excel generados y validados.')
+
+            publish_staged_directories((
+                (staging_csv_dir, official_csv_dir),
+                (staging_excel_dir, official_excel_dir),
+            ))
+            logs.append('La salida oficial del período fue actualizada.')
+
+        return jsonify({
+            'success': True,
+            'status': 'success',
+            'logs': logs,
+            'message': f'Todos los reportes fueron generados y validados para {periodo_str}',
+            'csv_directory': str(official_csv_dir),
+            'excel_directory': str(official_excel_dir),
+            'csv_count': len(csv_files),
+            'excel_count': len(excel_files),
+            'periodo': periodo_str,
+        })
+
+    except subprocess.TimeoutExpired:
         return jsonify({
             'success': False,
-            'error': f'Error inesperado: {str(e)}'
+            'status': 'failed',
+            'error': 'El proceso excedió el tiempo límite. La salida oficial no fue modificada.',
+            'logs': logs,
+        }), 500
+    except Exception as error:
+        logging.exception('Error inesperado generando reportes para %s', periodo_str)
+        return jsonify({
+            'success': False,
+            'status': 'failed',
+            'error': 'La generación no pudo completarse. La salida oficial no fue modificada.',
+            'logs': logs,
         }), 500
 
 

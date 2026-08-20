@@ -3,6 +3,10 @@ import openpyxl
 from openpyxl.styles import Font, Border, Side, Alignment
 from openpyxl.utils import get_column_letter
 import os
+try:
+    from .output_paths import resolve_report_directories
+except ImportError:
+    from output_paths import resolve_report_directories
 import logging
 import argparse
 
@@ -358,7 +362,7 @@ def calcular_totales_solvencia(data: pd.DataFrame) -> dict:
         'ratio2': ratio2
     }
 
-def generate_indicadores_solvencia_excel(period: str, csv_dir: str = None) -> str:
+def generate_indicadores_solvencia_excel(period: str, csv_dir: str = None, output_dir: str = None) -> str:
     """
     Función de conveniencia para generar el Excel de indicadores de solvencia.
     
@@ -370,15 +374,8 @@ def generate_indicadores_solvencia_excel(period: str, csv_dir: str = None) -> st
         Ruta del archivo Excel generado
     """
     # Obtener directorio base del proyecto
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    
-    if csv_dir is None:
-        csv_dir = os.path.join(base_dir, "ending_files", period)
-    
-    output_dir = os.path.join(base_dir, "excel_final_files")
-    period_dir = os.path.join(output_dir, period)
-    os.makedirs(period_dir, exist_ok=True)
-    
+    csv_dir, period_dir = resolve_report_directories(period, csv_dir, output_dir)
+
     csv_path = os.path.join(csv_dir, f"{period}_indicadores_solvencia.csv")
     output_path = os.path.join(period_dir, f"{period}_indicadores_solvencia.xlsx")
     

@@ -1,13 +1,14 @@
-import json
 import logging
 import os
 import sys
 import argparse
-from typing import Dict, Any, Union, List
+import json
+from typing import Union, List
 
 # Add parent directory to path to import utils
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.report_generator import export_query_to_csv
+from modules.report_generation import CSV_CONTRACTS, validate_csv_outputs
 
 def process_query(query: Union[str, List[str]], period: str) -> str:
     """
@@ -35,7 +36,7 @@ def generate_all_reports(
     output_dir: str = './',
     period: str = '202404',
     specific_report: str = None
-) -> None:
+) -> dict:
     """
     Genera reportes definidos en el archivo JSON de definiciones.
     
@@ -53,22 +54,32 @@ def generate_all_reports(
     os.makedirs(period_dir, exist_ok=True)
     
     # Cargar definiciones desde JSON
-    try:
-        with open(definitions_file, 'r', encoding='utf-8') as f:
-            report_definitions = json.load(f)
-    except Exception as e:
-        logging.error(f"Error al cargar definiciones: {e}")
-        return
+    with open(definitions_file, 'r', encoding='utf-8') as f:
+        report_definitions = json.load(f)
+
+    configured_reports = set(report_definitions)
+    contracted_reports = set(CSV_CONTRACTS)
+    if configured_reports != contracted_reports:
+        missing = sorted(contracted_reports - configured_reports)
+        unexpected = sorted(configured_reports - contracted_reports)
+        raise ValueError(
+            "Las definiciones y los contratos CSV no coinciden. "
+            f"Faltan={missing}; inesperados={unexpected}"
+        )
     
     # Validar si se especificó un reporte específico
     if specific_report:
         if specific_report not in report_definitions:
-            logging.error(f"Reporte '{specific_report}' no encontrado en definiciones")
-            logging.info(f"Reportes disponibles: {', '.join(report_definitions.keys())}")
-            return
+            raise ValueError(
+                f"Reporte '{specific_report}' no encontrado. "
+                f"Disponibles: {', '.join(report_definitions.keys())}"
+            )
         # Filtrar solo el reporte específico
         report_definitions = {specific_report: report_definitions[specific_report]}
     
+    successful = []
+    failed = []
+
     # Generar cada reporte
     for report_name, report_config in report_definitions.items():
         # Construir nombre de archivo dentro del directorio del período
@@ -80,7 +91,7 @@ def generate_all_reports(
             # Procesar query (maneja tanto string como array)
             processed_query = process_query(report_config["query"], period)
             
-            export_query_to_csv(
+            row_count = export_query_to_csv(
                 query=processed_query,
                 output_path=output_file,
                 int_columns=report_config.get("int_columns", []),
@@ -88,9 +99,30 @@ def generate_all_reports(
                 decimal=report_config.get("decimal", ",")
             )
             
+            if row_count == 0:
+                raise ValueError("El reporte no contiene registros")
+
             logging.info(f"Reporte {report_name} generado en {output_file}")
+            print(f"✅ {report_name} completado")
+            successful.append(report_name)
         except Exception as e:
             logging.error(f"Error al generar reporte {report_name}: {e}")
+            print(f"❌ {report_name} falló: {e}")
+            failed.append((report_name, str(e)))
+
+    if not specific_report and not failed:
+        try:
+            validate_csv_outputs(period_dir, period)
+        except Exception as e:
+            logging.error(f"Error validando archivos CSV: {e}")
+            failed.append(("Validación CSV", str(e)))
+
+    return {
+        "successful": successful,
+        "failed": failed,
+        "status": "success" if not failed else "partial" if successful else "failed",
+        "output_directory": period_dir,
+    }
 
 if __name__ == "__main__":
     # Get absolute path to script directory for report_definitions.json and output_dir
@@ -108,9 +140,20 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    generate_all_reports(
-        definitions_file=args.definitions,
-        output_dir=args.output_dir,
-        period=args.period,
-        specific_report=args.report
+    try:
+        result = generate_all_reports(
+            definitions_file=args.definitions,
+            output_dir=args.output_dir,
+            period=args.period,
+            specific_report=args.report
+        )
+    except Exception as e:
+        logging.error(f"No se pudo iniciar la generación: {e}")
+        print(f"❌ Generación CSV falló: {e}")
+        sys.exit(1)
+
+    print(
+        f"Resumen CSV: {len(result['successful'])} exitosos, "
+        f"{len(result['failed'])} fallidos"
     )
+    sys.exit(0 if not result['failed'] else 1)
