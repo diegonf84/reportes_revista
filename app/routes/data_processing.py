@@ -56,6 +56,7 @@ from modules.period_reload import (
     get_period_database_stats,
     stage_reload_candidate,
 )
+from modules.shipment import prepare_shipment
 
 data_processing_bp = Blueprint('data_processing', __name__)
 
@@ -251,6 +252,63 @@ def api_upload_parquet_to_s3():
             'success': False,
             'status': 'failed',
             'error': 'No se pudo completar la publicación en S3.',
+        }), 500
+
+
+@data_processing_bp.route('/api/prepare-shipment', methods=['POST'])
+def api_prepare_shipment():
+    """Copia y renombra los Excel finales al directorio de envío configurado."""
+    try:
+        data = request.get_json() or {}
+        periodo = str(data.get('periodo', '')).strip()
+        if not periodo:
+            return jsonify({
+                'success': False,
+                'status': 'failed',
+                'error': 'El período es requerido.',
+            }), 400
+
+        result = prepare_shipment(periodo)
+        copied = result['copied']
+        skipped = result['skipped']
+        failed = result['failed']
+        destination = result['destination']
+
+        if failed and copied:
+            status = 'partial'
+            success = True  # algunos se copiaron, reportar como éxito parcial
+        elif failed and not copied:
+            status = 'failed'
+            success = False
+        else:
+            status = 'success'
+            success = True
+
+        return jsonify({
+            'success': success,
+            'status': status,
+            'copied': copied,
+            'skipped': skipped,
+            'failed': failed,
+            'destination': destination,
+            'message': (
+                f'Se copiaron {len(copied)} archivos a {destination}'
+                + (f' ({len(skipped)} omitidos, {len(failed)} con error)'
+                   if (skipped or failed) else '.')
+            ),
+        })
+    except (ValueError, FileNotFoundError) as error:
+        return jsonify({
+            'success': False,
+            'status': 'failed',
+            'error': str(error),
+        }), 400
+    except Exception:
+        logging.exception('Error preparando envío')
+        return jsonify({
+            'success': False,
+            'status': 'failed',
+            'error': 'No se pudo preparar el envío.',
         }), 500
 
 

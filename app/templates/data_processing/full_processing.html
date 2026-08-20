@@ -72,6 +72,38 @@
             </div>
         </div>
     </div>
+
+    <div class="row justify-content-center mt-4">
+        <div class="col-lg-8">
+            <div class="card border-secondary">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="bi bi-envelope-paper"></i> Archivos listos para envío</h5>
+                    <p class="card-text text-muted">
+                        Copia los 13 Excel finales al directorio
+                        <code>~/personal/revista/&lt;YYYY-N&gt;/envios/</code>
+                        con el nombre esperado por el destinatario.
+                    </p>
+                    <form id="shipment-form" class="mt-3">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-sm-4 col-md-3">
+                                <label for="shipment-periodo" class="col-form-label fw-bold">Período</label>
+                            </div>
+                            <div class="col-sm-8 col-md-9">
+                                <input type="text" class="form-control" id="shipment-periodo"
+                                       name="periodo" placeholder="Ej: 202602" maxlength="6" required>
+                            </div>
+                        </div>
+                        <div class="d-grid mt-3">
+                            <button type="submit" class="btn btn-outline-primary" id="shipment-button">
+                                <i class="bi bi-envelope-paper"></i> Preparar envío
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                <div class="card-footer bg-white d-none" id="shipment-status" aria-live="polite"></div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -167,6 +199,63 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .finally(() => {
             s3Button.disabled = false;
+        });
+    });
+
+    const shipmentForm = document.getElementById('shipment-form');
+    const shipmentPeriodInput = document.getElementById('shipment-periodo');
+    const shipmentButton = document.getElementById('shipment-button');
+    const shipmentStatus = document.getElementById('shipment-status');
+
+    shipmentForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+        const period = shipmentPeriodInput.value.trim();
+
+        if (!/^\d{4}(0[1-4])$/.test(period)) {
+            shipmentStatus.classList.remove('d-none');
+            shipmentStatus.innerHTML = '<div class="alert alert-warning mb-0">Ingrese un período válido con formato YYYYPP.</div>';
+            return;
+        }
+
+        shipmentButton.disabled = true;
+        shipmentStatus.classList.remove('d-none');
+        shipmentStatus.innerHTML = `<div class="d-flex align-items-center text-primary">
+            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+            <span>Copiando y renombrando los Excel finales al directorio de envío...</span>
+        </div>`;
+
+        fetch('/data-processing/api/prepare-shipment', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({periodo: parseInt(period)})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const copied = (data.copied || []).length;
+                const skipped = (data.skipped || []).length;
+                const failed = (data.failed || []).length;
+                const details = [];
+                if (copied) details.push(`${copied} copiados`);
+                if (skipped) details.push(`${skipped} omitidos`);
+                if (failed) details.push(`${failed} con error`);
+                const summary = details.length ? ` (${details.join(', ')})` : '';
+                shipmentStatus.innerHTML = `<div class="text-success">
+                    <i class="bi bi-check-circle"></i> ${escapeHtml(data.message)}${escapeHtml(summary)}
+                </div>`;
+            } else {
+                shipmentStatus.innerHTML = `<div class="text-danger">
+                    <i class="bi bi-exclamation-triangle"></i> ${escapeHtml(data.error)}
+                </div>`;
+            }
+        })
+        .catch(() => {
+            shipmentStatus.innerHTML = `<div class="text-danger">
+                <i class="bi bi-exclamation-triangle"></i> No se pudo completar la comunicación con el servidor.
+            </div>`;
+        })
+        .finally(() => {
+            shipmentButton.disabled = false;
         });
     });
 });
