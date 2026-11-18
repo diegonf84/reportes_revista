@@ -12,6 +12,7 @@ Reglas:
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 from pathlib import Path
 from typing import TypedDict
@@ -19,7 +20,9 @@ from typing import TypedDict
 logger = logging.getLogger(__name__)
 
 
-SHIPMENT_BASE_DIR = Path("/Users/diegofrigerio/personal/revista")
+SHIPMENT_BASE_DIR = Path(
+    os.getenv("SHIPMENT_BASE_DIR", Path.home() / "Personal" / "revista")
+).expanduser()
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 EXCEL_FINAL_DIR = PROJECT_ROOT / "excel_final_files"
 

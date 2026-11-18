@@ -15,6 +15,7 @@ Usage:
 import pandas as pd
 import os
 import sys
+from pathlib import Path
 from dotenv import load_dotenv
 import sqlite3
 import logging
@@ -29,7 +30,7 @@ load_dotenv()
 
 database_path = os.getenv('DATABASE')
 
-CSV_PATH = '/Users/diegofrigerio/Personal/repositorios/insurance_full_proyect/data_base_carga_ipc.csv'
+CSV_PATH = Path(__file__).resolve().parents[1] / "data_base_carga_ipc.csv"
 
 
 # Map end-of-quarter month to project quarter code

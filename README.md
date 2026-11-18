@@ -111,7 +111,7 @@ pip install -e .
 ### Configuración Inicial
 ```bash
 # 1. Configurar variables de entorno
-echo "DATABASE=../revista_tr_database.db" > .env
+echo "DATABASE=../../revista_tr_database.db" > .env
 echo "FLASK_SECRET_KEY=tu-clave-secreta" >> .env
 echo "FLASK_PORT=5000" >> .env
 echo "FLASK_DEBUG=True" >> .env
