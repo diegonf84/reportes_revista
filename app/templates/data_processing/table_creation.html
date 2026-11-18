@@ -417,12 +417,6 @@ document.addEventListener('DOMContentLoaded', function() {
         resultsContainer.innerHTML = html;
     }
 
-    function AppAlerts.escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
     function makeRequest(endpoint, data, operation) {
         resultsContainer.innerHTML = '';
         showProgress(`Ejecutando ${operation}...`);

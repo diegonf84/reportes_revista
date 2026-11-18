@@ -116,12 +116,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const s3Button = document.getElementById('s3-upload-button');
     const s3Status = document.getElementById('s3-upload-status');
 
-    function AppAlerts.escapeHtml(value) {
-        const element = document.createElement('div');
-        element.textContent = value || '';
-        return element.innerHTML;
-    }
-
     form.addEventListener('submit', function(event) {
         event.preventDefault();
         const period = periodInput.value.trim();

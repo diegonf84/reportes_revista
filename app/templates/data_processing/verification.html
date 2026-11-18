@@ -336,12 +336,6 @@ document.addEventListener('DOMContentLoaded', function() {
         resultsContainer.innerHTML = html;
     }
 
-    function AppAlerts.escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
     // Check Periods Form
     document.getElementById('check-periods-form').addEventListener('submit', function(e) {
         e.preventDefault();

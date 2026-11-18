@@ -173,12 +173,6 @@ document.addEventListener('DOMContentLoaded', function() {
         resultsContainer.innerHTML = html;
     }
 
-    function AppAlerts.escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
     // Load Data Form
     document.getElementById('load-data-form').addEventListener('submit', function(e) {
         e.preventDefault();
